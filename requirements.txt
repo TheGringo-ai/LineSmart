@@ -1,3 +1,6 @@
 streamlit
 openai
-reportlab
+fpdf
+huggingface_hub
+pandas           # if you're parsing spreadsheets or CSVs
+numpy            # required by pandas and Streamlit
