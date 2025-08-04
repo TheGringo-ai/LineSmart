@@ -1,19 +1,19 @@
-# LineSmart – AI-Powered Technician Training Generator
+# LineSmart Training Platform
 
-Generate bilingual (English/Spanish) training content, quizzes, and downloadable PDFs from your SOPs, manuals, or plain text.
+AI-powered training platform for manufacturing and industrial environments.
 
-## Features
-- 🌐 English ↔ Spanish
-- 📄 PDF Export
-- ❓ Quiz Generator
-- 📂 File Upload Support
+## Deployment
 
-## Deploy it yourself on Hugging Face Spaces:
+This application is deployed on Google Cloud Run.
+
+## Local Development
+
 ```bash
-git init
-git remote add origin https://huggingface.co/spaces/TheGringo-ai/LineSmart
-git add .
-git commit -m "initial commit"
-git push -u origin main
+npm install
+npm start
 ```
-# Rebuild trigger
+
+## Environment Variables
+
+- `REACT_APP_API_URL`: API endpoint URL
+- `REACT_APP_ENVIRONMENT`: Environment (development/production)
