@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm install)",
+      "Bash(./deploy.sh)",
+      "Bash(gcloud builds log:*)",
+      "Bash(curl:*)",
+      "Bash(gcloud:*)",
+      "Bash(docker:*)",
+      "Bash(/dev/null)",
+      "Bash(open:*)",
+      "Bash(export:*)",
+      "Bash(NODE_ENV=production PORT=8080 node production.js)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,9 +1,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Upload, FileText, Users, Brain, CheckCircle, AlertCircle, Play, Download, Settings, UserPlus, Target, TrendingUp, Calendar, Award, BookOpen, Plus, Edit3, Eye, Filter, Database, Cloud, Key, Zap, Link, Bot, FileSearch, Search, Building, Globe, Shield, GitBranch, X } from 'lucide-react';
+import { Upload, FileText, Users, Brain, CheckCircle, AlertCircle, Play, Download, Settings, UserPlus, Target, TrendingUp, Calendar, Award, BookOpen, Plus, Edit3, Eye, Filter, Database, Cloud, Key, Zap, Link, Bot, FileSearch, Search, Building, Globe, Shield, GitBranch } from 'lucide-react';
 import RAGManager from './components/RAGManager';
 import LandingPage from './components/LandingPage';
-import AdminDashboard from './components/AdminDashboard';
 
 const LineSmartPlatform = () => {
   const [currentView, setCurrentView] = useState('setup');
@@ -11,10 +10,6 @@ const LineSmartPlatform = () => {
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [showRAGManager, setShowRAGManager] = useState(false);
   const [showLandingPage, setShowLandingPage] = useState(true);
-  const [showAdminDashboard, setShowAdminDashboard] = useState(false);
-  const [adminAccessCode, setAdminAccessCode] = useState('');
-  const [showAdminButton, setShowAdminButton] = useState(false);
-  const [logoClickCount, setLogoClickCount] = useState(0);
   const [userTier, setUserTier] = useState(null);
   const [demoUser, setDemoUser] = useState(null);
   
@@ -307,7 +302,7 @@ const LineSmartPlatform = () => {
     
     // Send email notification
     const emailData = {
-      to: 'yoyofred@gringosgambit.com',
+      to: 'scribbleglass@gmail.com',
       subject: `LineSmart Demo Request - ${userData.companyName}`,
       body: `New demo request:
 
@@ -426,57 +421,6 @@ Please activate their demo account.`
       setSetupStep(steps[currentIndex - 1]);
     }
   };
-
-  // Admin access control
-  const handleAdminAccess = () => {
-    // Secure admin access - in production, this should be more secure
-    const adminCode = 'LINESMART_ADMIN_2024';
-    if (adminAccessCode === adminCode) {
-      setShowAdminDashboard(true);
-      setAdminAccessCode('');
-    } else {
-      alert('Invalid admin access code');
-      setAdminAccessCode('');
-    }
-  };
-
-  // Logo click handler for admin access
-  const handleLogoClick = () => {
-    setLogoClickCount(prev => {
-      const newCount = prev + 1;
-      if (newCount === 3) {
-        // Triple click detected
-        setShowAdminButton(true);
-        setTimeout(() => setShowAdminButton(false), 10000); // Hide after 10 seconds
-        return 0; // Reset count
-      }
-      // Reset count after 2 seconds if not triple clicked
-      setTimeout(() => setLogoClickCount(0), 2000);
-      return newCount;
-    });
-  };
-
-  // Check for admin access via keyboard shortcut (Ctrl+Shift+A) and URL parameter
-  useEffect(() => {
-    const handleKeyPress = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
-        e.preventDefault();
-        const code = prompt('Enter admin access code:');
-        if (code === 'LINESMART_ADMIN_2024') {
-          setShowAdminDashboard(true);
-        }
-      }
-    };
-    
-    // Check URL for admin parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('admin') === 'true') {
-      setShowAdminButton(true);
-    }
-    
-    document.addEventListener('keydown', handleKeyPress);
-    return () => document.removeEventListener('keydown', handleKeyPress);
-  }, []);
 
   const testConnection = async (type, config) => {
     return new Promise((resolve) => {
@@ -1013,13 +957,7 @@ RAG Analysis Context:
                   <Brain className="h-8 w-8 text-blue-600" />
                   <div>
                     <div className="flex items-center space-x-3">
-                      <h1 
-                        className="text-2xl font-bold text-gray-900 cursor-pointer select-none" 
-                        onClick={handleLogoClick}
-                        title="Click to access admin"
-                      >
-                        Line Smart
-                      </h1>
+                      <h1 className="text-2xl font-bold text-gray-900">Line Smart</h1>
                       {userTier === 'demo' && (
                         <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-semibold">
                           DEMO ACCESS
@@ -1047,25 +985,6 @@ RAG Analysis Context:
                 <Settings className="h-4 w-4" />
                 <span>Setup</span>
               </button>
-              
-              {/* Admin Access Button */}
-              {showAdminButton && (
-                <button
-                  onClick={() => {
-                    const code = prompt('Enter admin access code:');
-                    if (code === 'LINESMART_ADMIN_2024') {
-                      setShowAdminDashboard(true);
-                      setShowAdminButton(false);
-                    } else {
-                      alert('Invalid admin access code');
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center space-x-2"
-                >
-                  <Shield className="h-4 w-4" />
-                  <span>Admin</span>
-                </button>
-              )}
             </div>
           </div>
         </div>
@@ -3185,14 +3104,6 @@ RAG Analysis Context:
         {showRAGManager && (
           <RAGManager
             onClose={() => setShowRAGManager(false)}
-            currentUser={currentUser}
-          />
-        )}
-
-        {/* Admin Dashboard Modal */}
-        {showAdminDashboard && (
-          <AdminDashboard
-            onClose={() => setShowAdminDashboard(false)}
             currentUser={currentUser}
           />
         )}
