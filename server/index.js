@@ -13,6 +13,7 @@ dotenv.config();
 // Import routes (after env is loaded)
 import aiRoutes from './routes/ai.routes.js';
 import adminRoutes from './routes/admin.routes.js';
+import assessmentRoutes from './routes/assessment.routes.js';
 import logger from './config/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -85,17 +86,19 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/assessments', assessmentRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
     name: 'LineSmart AI Training Platform API',
-    version: '1.0.0',
+    version: '2.0.0',
     status: 'running',
     endpoints: {
       health: '/health',
       ai: '/api/ai',
-      docs: '/api/docs',
+      admin: '/api/admin',
+      assessments: '/api/assessments',
     },
   });
 });
