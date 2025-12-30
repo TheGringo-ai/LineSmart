@@ -1,5 +1,5 @@
 # Multi-stage build for LineSmart Platform
-FROM node:18-alpine as frontend-build
+FROM node:20-alpine as frontend-build
 
 # Set working directory for frontend build
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install frontend dependencies
-RUN npm ci --only=production --ignore-scripts && npm cache clean --force
+RUN npm ci --legacy-peer-deps --ignore-scripts && npm cache clean --force
 
 # Copy frontend source code
 COPY src/ ./src/
@@ -20,7 +20,7 @@ COPY postcss.config.js ./
 RUN npm run build
 
 # Production stage - Node.js server that serves both API and frontend
-FROM node:18-alpine
+FROM node:20-alpine
 
 # Install security updates
 RUN apk upgrade --no-cache
@@ -35,7 +35,7 @@ WORKDIR /app
 COPY server/package*.json ./
 
 # Install server dependencies
-RUN npm ci --only=production --ignore-scripts && npm cache clean --force
+RUN npm ci --legacy-peer-deps --ignore-scripts && npm cache clean --force
 
 # Copy server source code
 COPY server/ ./
