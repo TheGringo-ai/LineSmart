@@ -1,65 +1,36 @@
-# Multi-stage build for LineSmart Platform
-FROM node:20-alpine as frontend-build
+# Use the official Node.js runtime as the base image
+FROM node:18-alpine as build
 
-# Set working directory for frontend build
+# Set the working directory in the container
 WORKDIR /app
 
-# Copy frontend package files
+# Build argument for API URL
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+
+# Copy package.json and package-lock.json (if available)
 COPY package*.json ./
 
-# Install frontend dependencies
-RUN npm ci --legacy-peer-deps --ignore-scripts && npm cache clean --force
+# Install dependencies
+RUN npm install
 
-# Copy frontend source code
-COPY src/ ./src/
-COPY public/ ./public/
-COPY tailwind.config.js ./
-COPY postcss.config.js ./
+# Copy the rest of the application code
+COPY . .
 
 # Build the React app for production
 RUN npm run build
 
-# Production stage - Node.js server that serves both API and frontend
-FROM node:20-alpine
+# Use nginx to serve the built app
+FROM nginx:alpine
 
-# Install security updates
-RUN apk upgrade --no-cache
+# Copy the built app from the build stage
+COPY --from=build /app/build /usr/share/nginx/html
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && adduser -S linesmart -u 1001
-
-# Set working directory
-WORKDIR /app
-
-# Copy server package files
-COPY server/package*.json ./
-
-# Install server dependencies
-RUN npm ci --legacy-peer-deps --ignore-scripts && npm cache clean --force
-
-# Copy server source code
-COPY server/ ./
-
-# Copy the built frontend from the build stage
-COPY --from=frontend-build /app/build ./build
-
-# Create necessary directories and set permissions
-RUN mkdir -p /app/uploads /app/logs && \
-    chown -R linesmart:nodejs /app
-
-# Switch to non-root user
-USER linesmart
+# Copy custom nginx configuration if needed
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
 # Expose port 8080 (Google Cloud Run requirement)
 EXPOSE 8080
 
-# Add health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1))" || exit 1
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=8080
-
-# Start the production server (serves both API and frontend)
-CMD ["node", "production.js"]
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]

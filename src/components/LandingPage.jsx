@@ -24,11 +24,11 @@ const LandingPage = ({ onDemoAccess }) => {
 
       // In a real implementation, this would send to your backend
       // For now, we'll simulate the API call
-      await fetch('mailto:yoyofred@gringosgambit.com', {
+      await fetch('mailto:scribbleglass@gmail.com', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: 'yoyofred@gringosgambit.com',
+          to: 'scribbleglass@gmail.com',
           subject: `LineSmart Demo Request - ${companyName}`,
           body: `New demo request:\n\nCompany: ${companyName}\nEmail: ${email}\nPassword: ${password}\nTimestamp: ${demoData.timestamp}\n\nPlease activate their demo account.`
         })

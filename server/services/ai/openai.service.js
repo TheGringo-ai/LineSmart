@@ -3,12 +3,36 @@ import logger from '../../config/logger.js';
 
 class OpenAIService {
   constructor() {
-    this.client = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    this.model = process.env.OPENAI_MODEL || 'gpt-3.5-turbo';
-    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 2000; // Optimized for comprehensive SOP generation
-    this.defaultTemperature = 0.3; // Lower temperature for more consistent, cost-effective responses
+    this.client = null;
+    this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 2000;
+    this.defaultTemperature = 0.3;
+
+    // Only initialize client if API key is provided
+    if (process.env.OPENAI_API_KEY) {
+      this.client = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+      logger.info('OpenAI service initialized', { model: this.model });
+    } else {
+      logger.warn('OpenAI API key not configured - service will be unavailable');
+    }
+  }
+
+  /**
+   * Check if the service is available
+   */
+  isAvailable() {
+    return this.client !== null;
+  }
+
+  /**
+   * Ensure client is initialized before making requests
+   */
+  ensureClient() {
+    if (!this.client) {
+      throw new Error('OpenAI API key not configured. Please set OPENAI_API_KEY environment variable.');
+    }
   }
 
   /**
@@ -19,6 +43,7 @@ class OpenAIService {
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
     try {
+      this.ensureClient();
       const systemMessage = this.buildSystemMessage(context);
       const userMessage = this.buildUserMessage(prompt, context);
 
@@ -74,6 +99,7 @@ class OpenAIService {
    */
   async generateEmbeddings(texts) {
     try {
+      this.ensureClient();
       const model = process.env.EMBEDDING_MODEL || 'text-embedding-ada-002';
 
       logger.info('Generating embeddings', {
@@ -103,28 +129,89 @@ class OpenAIService {
    */
   async generateQuiz(content, questionCount = 5) {
     try {
-      const prompt = `Based on the following training content, generate ${questionCount} multiple-choice quiz questions.
-      Format as JSON array with structure: [{"question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "..."}]
+      this.ensureClient();
+      // Truncate content if too long to avoid token limits
+      const maxContentLength = 6000;
+      const truncatedContent = content.length > maxContentLength
+        ? content.substring(0, maxContentLength) + '...[truncated]'
+        : content;
+
+      const prompt = `Based on the following training content, generate exactly ${questionCount} multiple-choice quiz questions.
+
+You MUST respond with a valid JSON object containing a "questions" array with this exact structure:
+{
+  "questions": [
+    {
+      "question": "The question text here?",
+      "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+      "correctAnswer": 0,
+      "explanation": "Brief explanation why this answer is correct"
+    }
+  ]
+}
+
+Rules:
+- correctAnswer must be 0, 1, 2, or 3 (index of the correct option)
+- Each question must have exactly 4 options
+- Generate exactly ${questionCount} questions
+- Make questions relevant to the training content
 
 Training Content:
-${content}`;
+${truncatedContent}`;
 
       const completion = await this.client.chat.completions.create({
         model: this.model,
         messages: [
           {
             role: 'system',
-            content: 'You are an expert training content creator. Generate clear, relevant quiz questions in JSON format.'
+            content: 'You are an expert training quiz creator. Always respond with valid JSON containing a "questions" array. Never include text outside the JSON.'
           },
           { role: 'user', content: prompt }
         ],
-        max_tokens: 2000,
-        temperature: 0.8,
+        max_tokens: 3000,
+        temperature: 0.7,
         response_format: { type: "json_object" }
       });
 
-      const quizData = JSON.parse(completion.choices[0].message.content);
-      return quizData.questions || quizData;
+      const responseText = completion.choices[0].message.content;
+
+      // Attempt to parse JSON with multiple fallback strategies
+      let quizData;
+      try {
+        quizData = JSON.parse(responseText);
+      } catch (parseError) {
+        // Try to extract JSON from the response if it has extra text
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          quizData = JSON.parse(jsonMatch[0]);
+        } else {
+          // Try to extract array directly
+          const arrayMatch = responseText.match(/\[[\s\S]*\]/);
+          if (arrayMatch) {
+            quizData = { questions: JSON.parse(arrayMatch[0]) };
+          } else {
+            throw new Error('Could not parse quiz response as JSON');
+          }
+        }
+      }
+
+      // Validate and return questions
+      const questions = quizData.questions || quizData;
+      if (!Array.isArray(questions)) {
+        throw new Error('Quiz response does not contain a questions array');
+      }
+
+      // Validate each question has required fields
+      return questions.map((q, idx) => ({
+        question: q.question || `Question ${idx + 1}`,
+        options: Array.isArray(q.options) && q.options.length === 4
+          ? q.options
+          : ['Option A', 'Option B', 'Option C', 'Option D'],
+        correctAnswer: typeof q.correctAnswer === 'number' && q.correctAnswer >= 0 && q.correctAnswer <= 3
+          ? q.correctAnswer
+          : 0,
+        explanation: q.explanation || 'See the training content for more details.'
+      }));
     } catch (error) {
       logger.error('OpenAI quiz generation error', { error: error.message });
       throw new Error(`Quiz generation failed: ${error.message}`);
@@ -138,6 +225,7 @@ ${content}`;
    */
   async translateContent(content, targetLanguage) {
     try {
+      this.ensureClient();
       const languageNames = {
         en: 'English',
         es: 'Spanish',
@@ -231,6 +319,7 @@ Remember: You're not writing documentation - you're creating the blueprint for o
    */
   async generateSOP(prompt, context = {}, options = {}) {
     try {
+      this.ensureClient();
       // Enhanced SOP-specific prompt
       const sopPrompt = `Create a comprehensive Standard Operating Procedure (SOP) for: ${prompt}
 
@@ -347,6 +436,9 @@ Create this SOP with exceptional detail, perfect clarity, and zero ambiguity.`;
    * Health check
    */
   async healthCheck() {
+    if (!this.client) {
+      return { status: 'unconfigured', error: 'API key not set' };
+    }
     try {
       const response = await this.client.models.list();
       return { status: 'healthy', models: response.data.length };

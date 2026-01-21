@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { Award, Clock, CheckCircle, XCircle, Play, ChevronRight, Trophy, Target, Star, ArrowLeft } from 'lucide-react';
+import { getAuth } from 'firebase/auth';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+
+const getAuthHeaders = async () => {
+  const auth = getAuth();
+  const user = auth.currentUser;
+  if (user) {
+    try {
+      const token = await user.getIdToken();
+      return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+    } catch (error) {
+      console.error('Failed to get auth token:', error);
+    }
+  }
+  return { 'Content-Type': 'application/json' };
+};
 
 const AssessmentCenter = ({ userId, onBack }) => {
   const [tiers, setTiers] = useState(null);
@@ -45,7 +60,8 @@ const AssessmentCenter = ({ userId, onBack }) => {
 
   const fetchTiers = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/assessments/tiers`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/api/assessments/tiers`, { headers });
       const data = await res.json();
       if (data.success) {
         setTiers(data.data);
@@ -63,7 +79,8 @@ const AssessmentCenter = ({ userId, onBack }) => {
 
   const fetchUserProgress = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/assessments/user/${userId}/progress`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${API_URL}/api/assessments/user/${userId}/progress`, { headers });
       const data = await res.json();
       if (data.success) {
         setUserProgress(data.data);
@@ -78,9 +95,10 @@ const AssessmentCenter = ({ userId, onBack }) => {
     setLoading(true);
     setError(null);
     try {
+      const headers = await getAuthHeaders();
       const res = await fetch(`${API_URL}/api/assessments/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({ userId, tier })
       });
       const data = await res.json();
@@ -125,8 +143,10 @@ const AssessmentCenter = ({ userId, onBack }) => {
     const passed = score >= tierConfig.passingScore;
 
     try {
+      const headers = await getAuthHeaders();
       await fetch(`${API_URL}/api/assessments/${currentAssessment.assessmentId}/finish`, {
-        method: 'POST'
+        method: 'POST',
+        headers
       });
     } catch (err) {
       console.error('Failed to save result:', err);

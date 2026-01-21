@@ -3,11 +3,33 @@ import logger from '../../config/logger.js';
 
 class ClaudeService {
   constructor() {
-    this.client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    });
+    this.apiKey = process.env.ANTHROPIC_API_KEY;
+    this.enabled = !!this.apiKey && this.apiKey.length > 10;
+    this.client = null;
+
+    if (this.enabled) {
+      try {
+        this.client = new Anthropic({
+          apiKey: this.apiKey,
+        });
+        logger.info('Claude service initialized successfully');
+      } catch (error) {
+        logger.warn('Claude service failed to initialize', { error: error.message });
+        this.enabled = false;
+      }
+    } else {
+      logger.warn('Claude service disabled - no valid API key provided');
+    }
+
     this.model = process.env.ANTHROPIC_MODEL || 'claude-3-sonnet-20240229';
     this.maxTokens = parseInt(process.env.ANTHROPIC_MAX_TOKENS) || 4096;
+  }
+
+  /**
+   * Check if service is available
+   */
+  isAvailable() {
+    return this.enabled && this.client !== null;
   }
 
   /**
@@ -17,6 +39,10 @@ class ClaudeService {
    * @param {object} options - Additional options
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
+    if (!this.isAvailable()) {
+      throw new Error('Claude service is not available - API key not configured');
+    }
+
     try {
       const systemMessage = this.buildSystemMessage(context);
       const userMessage = this.buildUserMessage(prompt, context);
@@ -74,6 +100,10 @@ class ClaudeService {
    * @param {number} questionCount - Number of questions to generate
    */
   async generateQuiz(content, questionCount = 5) {
+    if (!this.isAvailable()) {
+      throw new Error('Claude service is not available - API key not configured');
+    }
+
     try {
       const prompt = `Based on the following training content, generate ${questionCount} multiple-choice quiz questions.
 Format as JSON array with structure: [{"question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": 0, "explanation": "..."}]
@@ -115,6 +145,10 @@ Respond with only the JSON array, no additional text.`;
    * @param {string} targetLanguage - Target language code
    */
   async translateContent(content, targetLanguage) {
+    if (!this.isAvailable()) {
+      throw new Error('Claude service is not available - API key not configured');
+    }
+
     try {
       const languageNames = {
         en: 'English',
@@ -153,6 +187,10 @@ Respond with only the JSON array, no additional text.`;
    * @param {object} employeeData - Employee training data
    */
   async analyzeEmployeePerformance(employeeData) {
+    if (!this.isAvailable()) {
+      throw new Error('Claude service is not available - API key not configured');
+    }
+
     try {
       const prompt = `Analyze the following employee training data and provide personalized recommendations:
 
@@ -193,6 +231,10 @@ Format the response as structured text with clear sections.`;
    * @param {object} context - Additional context
    */
   async generateSafetyContent(scenario, context = {}) {
+    if (!this.isAvailable()) {
+      throw new Error('Claude service is not available - API key not configured');
+    }
+
     try {
       const systemMessage = `You are a safety expert specializing in industrial and manufacturing environments. Generate comprehensive safety training content that:
 - Emphasizes hazard awareness and prevention
@@ -292,6 +334,13 @@ Remember: You are Claude - be thorough, be precise, be safety-obsessed, and neve
    * Health check
    */
   async healthCheck() {
+    if (!this.isAvailable()) {
+      return {
+        status: 'unavailable',
+        error: 'API key not configured'
+      };
+    }
+
     try {
       // Claude doesn't have a models list endpoint, so we'll do a minimal request
       const message = await this.client.messages.create({

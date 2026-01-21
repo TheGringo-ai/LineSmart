@@ -2,10 +2,35 @@
  * Frontend AI Service
  * Communicates with the backend AI API
  */
+import { getAuth } from 'firebase/auth';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3001');
 
 class AIService {
+  /**
+   * Get auth headers with Firebase token
+   */
+  async getAuthHeaders() {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (user) {
+      try {
+        const token = await user.getIdToken();
+        return {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        };
+      } catch (error) {
+        console.error('Failed to get auth token:', error);
+      }
+    }
+
+    return {
+      'Content-Type': 'application/json',
+    };
+  }
+
   /**
    * Generate training content
    * @param {string} prompt - Training content prompt
@@ -14,11 +39,10 @@ class AIService {
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/api/ai/generate-training`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           prompt,
           context,
@@ -47,11 +71,10 @@ class AIService {
    */
   async generateQuiz(content, questionCount = 5, options = {}) {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/api/ai/generate-quiz`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           content,
           questionCount,
@@ -80,11 +103,10 @@ class AIService {
    */
   async translateContent(content, targetLanguage, options = {}) {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/api/ai/translate`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           content,
           targetLanguage,
@@ -112,11 +134,10 @@ class AIService {
    */
   async analyzePerformance(employeeData, options = {}) {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/api/ai/analyze-performance`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           employeeData,
           options,
@@ -144,11 +165,10 @@ class AIService {
    */
   async generateSafetyContent(scenario, context = {}, options = {}) {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/api/ai/safety-content`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           scenario,
           context,
@@ -175,11 +195,10 @@ class AIService {
    */
   async generateEmbeddings(texts) {
     try {
+      const headers = await this.getAuthHeaders();
       const response = await fetch(`${API_BASE_URL}/api/ai/embeddings`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
         body: JSON.stringify({
           texts,
         }),
@@ -203,7 +222,8 @@ class AIService {
    */
   async getProviders() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/providers`);
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/ai/providers`, { headers });
 
       if (!response.ok) {
         throw new Error('Failed to fetch providers');
@@ -222,7 +242,8 @@ class AIService {
    */
   async healthCheck() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/health`);
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/ai/health`, { headers });
       const data = await response.json();
       return data.data;
     } catch (error) {
@@ -237,7 +258,8 @@ class AIService {
    */
   async healthCheckProvider(provider) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/health/${provider}`);
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/ai/health/${provider}`, { headers });
       const data = await response.json();
       return data.data;
     } catch (error) {
@@ -252,7 +274,8 @@ class AIService {
    */
   async getRecommendedProvider(taskType) {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/ai/recommend/${taskType}`);
+      const headers = await this.getAuthHeaders();
+      const response = await fetch(`${API_BASE_URL}/api/ai/recommend/${taskType}`, { headers });
       const data = await response.json();
       return data.data.recommendedProvider;
     } catch (error) {
