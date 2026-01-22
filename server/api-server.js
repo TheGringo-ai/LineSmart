@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 import apiRoutes from './routes/ai.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import logger from './config/logger.js';
-import { authMiddleware } from './middleware/auth.js';
+import { optionalAuthMiddleware } from './middleware/auth.js';
 import './config/firebase.js'; // Initialize Firebase
 
 // Load environment variables
@@ -18,6 +18,9 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
+
+// Trust proxy for Cloud Run
+app.set('trust proxy', true);
 
 // Security middleware
 app.use(helmet());
@@ -73,9 +76,9 @@ app.get('/', (req, res) => {
   });
 });
 
-// API Routes - protected by Firebase auth
-app.use('/api/ai', authMiddleware, apiRoutes);
-app.use('/api/admin', authMiddleware, adminRoutes);
+// API Routes - with optional auth (extracts user if token present)
+app.use('/api/ai', optionalAuthMiddleware, apiRoutes);
+app.use('/api/admin', optionalAuthMiddleware, adminRoutes);
 
 // 404 handler
 app.use((req, res) => {
