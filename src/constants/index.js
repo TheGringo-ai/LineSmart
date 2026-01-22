@@ -258,5 +258,42 @@ export const sampleEmployees = [
   }
 ];
 
-// Setup wizard steps
-export const setupSteps = ['welcome', 'company', 'ai-models', 'data-source', 'onboarding', 'complete'];
+// Setup wizard steps - simplified flow (skip complex RAG config for quick start)
+export const setupSteps = ['welcome', 'company', 'ai-models', 'complete'];
+
+// Full setup steps (for advanced users)
+export const advancedSetupSteps = ['welcome', 'company', 'ai-models', 'data-source', 'onboarding', 'complete'];
+
+// User roles for access control
+export const userRoles = {
+  admin: {
+    name: 'Administrator',
+    description: 'Full access to all company data and settings',
+    canViewAllEmployees: true,
+    canViewAllDepartments: true,
+    canManageUsers: true,
+    canManageSettings: true,
+    canCreateTraining: true,
+    canDeleteTraining: true
+  },
+  manager: {
+    name: 'Manager/Supervisor',
+    description: 'Access to their department employees and training',
+    canViewAllEmployees: false,
+    canViewAllDepartments: false,
+    canManageUsers: false,
+    canManageSettings: false,
+    canCreateTraining: true,
+    canDeleteTraining: false
+  },
+  employee: {
+    name: 'Employee',
+    description: 'Access to their own training and progress',
+    canViewAllEmployees: false,
+    canViewAllDepartments: false,
+    canManageUsers: false,
+    canManageSettings: false,
+    canCreateTraining: false,
+    canDeleteTraining: false
+  }
+};

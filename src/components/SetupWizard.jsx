@@ -65,37 +65,42 @@ export const SetupWizard = ({
         <div className="bg-white rounded-xl shadow-sm border p-8 text-center">
           <div className="mb-6">
             <Bot className="h-16 w-16 text-blue-600 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Line Smart</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">Welcome to LineSmart</h3>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Set up your enterprise AI-powered training platform with RAG capabilities.
+              AI-powered training platform for your team. Get started in under 2 minutes!
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-blue-50 p-6 rounded-lg">
-              <Brain className="h-8 w-8 text-blue-600 mb-3 mx-auto" />
-              <h4 className="font-semibold text-blue-900 mb-2">AI Integration</h4>
-              <p className="text-sm text-blue-800">Connect multiple AI models</p>
-            </div>
             <div className="bg-green-50 p-6 rounded-lg">
-              <Database className="h-8 w-8 text-green-600 mb-3 mx-auto" />
-              <h4 className="font-semibold text-green-900 mb-2">RAG System</h4>
-              <p className="text-sm text-green-800">Use your company data</p>
+              <Zap className="h-8 w-8 text-green-600 mb-3 mx-auto" />
+              <h4 className="font-semibold text-green-900 mb-2">Free AI Included</h4>
+              <p className="text-sm text-green-800">50 trainings/month free</p>
+            </div>
+            <div className="bg-blue-50 p-6 rounded-lg">
+              <Users className="h-8 w-8 text-blue-600 mb-3 mx-auto" />
+              <h4 className="font-semibold text-blue-900 mb-2">Team Management</h4>
+              <p className="text-sm text-blue-800">Track employee progress</p>
             </div>
             <div className="bg-purple-50 p-6 rounded-lg">
-              <Users className="h-8 w-8 text-purple-600 mb-3 mx-auto" />
-              <h4 className="font-semibold text-purple-900 mb-2">Individual Tracking</h4>
-              <p className="text-sm text-purple-800">Personalized learning paths</p>
+              <Brain className="h-8 w-8 text-purple-600 mb-3 mx-auto" />
+              <h4 className="font-semibold text-purple-900 mb-2">Smart Training</h4>
+              <p className="text-sm text-purple-800">AI-generated content & quizzes</p>
             </div>
           </div>
 
-          <button
-            onClick={handleSetupNext}
-            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 mx-auto"
-          >
-            <span>Get Started</span>
-            <GitBranch className="h-4 w-4" />
-          </button>
+          <div className="space-y-4">
+            <button
+              onClick={handleSetupNext}
+              className="w-full max-w-md px-8 py-4 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2 mx-auto text-lg font-semibold"
+            >
+              <Zap className="h-5 w-5" />
+              <span>Quick Start (2 min)</span>
+            </button>
+            <p className="text-sm text-gray-500">
+              Just enter your company name and you're ready to create training!
+            </p>
+          </div>
         </div>
       )}
 

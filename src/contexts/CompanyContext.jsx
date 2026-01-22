@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   doc,
   getDoc,
@@ -6,11 +6,13 @@ import {
   updateDoc,
   collection,
   query,
+  where,
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from './AuthContext';
+import { userRoles } from '../constants';
 
 const CompanyContext = createContext();
 
@@ -25,12 +27,37 @@ export const useCompany = () => {
 export const CompanyProvider = ({ children }) => {
   const { userProfile, currentUser } = useAuth();
   const [company, setCompany] = useState(null);
-  const [employees, setEmployees] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
   const [trainings, setTrainings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const companyId = userProfile?.companyId;
+  const userRole = userProfile?.role || 'employee';
+  const userDepartment = userProfile?.department;
+  const rolePermissions = userRoles[userRole] || userRoles.employee;
+
+  // Filter employees based on user role
+  const employees = useMemo(() => {
+    if (!allEmployees.length) return [];
+
+    // Admins see all employees
+    if (rolePermissions.canViewAllEmployees) {
+      return allEmployees;
+    }
+
+    // Managers see only their department
+    if (userRole === 'manager' && userDepartment) {
+      return allEmployees.filter(emp => emp.department === userDepartment);
+    }
+
+    // Employees see only themselves
+    if (userRole === 'employee') {
+      return allEmployees.filter(emp => emp.userId === currentUser?.uid);
+    }
+
+    return allEmployees;
+  }, [allEmployees, rolePermissions, userRole, userDepartment, currentUser]);
 
   // Fetch company data
   useEffect(() => {
@@ -57,7 +84,7 @@ export const CompanyProvider = ({ children }) => {
     return unsubscribe;
   }, [companyId]);
 
-  // Fetch employees
+  // Fetch employees (all employees, filtering happens in useMemo above)
   useEffect(() => {
     if (!companyId) return;
 
@@ -69,7 +96,7 @@ export const CompanyProvider = ({ children }) => {
         id: doc.id,
         ...doc.data()
       }));
-      setEmployees(employeeList);
+      setAllEmployees(employeeList);
     }, (err) => {
       console.error('Error fetching employees:', err);
       setError(err.message);
@@ -248,6 +275,9 @@ export const CompanyProvider = ({ children }) => {
     trainings,
     loading,
     error,
+    userRole,
+    rolePermissions,
+    userDepartment,
     saveCompany,
     addEmployee,
     updateEmployee,

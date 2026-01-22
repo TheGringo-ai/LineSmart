@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }) => {
         role: additionalData.role || 'admin',
         companyId: additionalData.companyId || null,
         employeeId: additionalData.employeeId || null,
+        department: additionalData.department || null,
         created_at: serverTimestamp(),
         lastLogin: serverTimestamp(),
         ...additionalData
