@@ -235,12 +235,17 @@ export const SetupWizard = ({
                   <div
                     key={model.id}
                     onClick={() => updateAIModelConfig('primary', model.id)}
-                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${
+                    className={`p-4 border rounded-lg cursor-pointer transition-colors relative ${
                       setupConfig.aiModels.primary === model.id
-                        ? 'border-blue-500 bg-blue-50'
+                        ? model.isFree ? 'border-green-500 bg-green-50' : 'border-blue-500 bg-blue-50'
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
                   >
+                    {model.badge && (
+                      <span className="absolute top-2 right-2 px-2 py-1 bg-green-500 text-white text-xs font-bold rounded-full">
+                        {model.badge}
+                      </span>
+                    )}
                     <h4 className="font-medium text-gray-900 mb-2">{model.name}</h4>
                     <p className="text-sm text-gray-600">{model.description}</p>
                   </div>
@@ -248,35 +253,55 @@ export const SetupWizard = ({
               </div>
             </div>
 
-            {setupConfig.aiModels.primary && (
+            {setupConfig.aiModels.primary && setupConfig.aiModels.primary !== 'free' && (
               <div className="border-t pt-6">
                 <h4 className="text-lg font-medium mb-4">
                   Configure {aiModels.find(m => m.id === setupConfig.aiModels.primary)?.name}
                 </h4>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                    <input
-                      type="password"
-                      value={setupConfig.aiModels.configs[setupConfig.aiModels.primary]?.apiKey || ''}
-                      onChange={(e) => updateAIModelAPIConfig(setupConfig.aiModels.primary, 'apiKey', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter API key"
-                    />
+                {setupConfig.aiModels.primary === 'llama' ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
+                    <p className="text-sm text-yellow-800">
+                      <strong>Local Llama Setup:</strong> Install Ollama from{' '}
+                      <a href="https://ollama.ai" target="_blank" rel="noopener noreferrer" className="underline">ollama.ai</a>,
+                      then run <code className="bg-yellow-100 px-1 rounded">ollama pull llama2</code> in your terminal.
+                    </p>
+                    <div className="mt-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Ollama Endpoint</label>
+                      <input
+                        type="text"
+                        value={setupConfig.aiModels.configs.llama?.endpoint || 'http://localhost:11434'}
+                        onChange={(e) => updateAIModelAPIConfig('llama', 'endpoint', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="http://localhost:11434"
+                      />
+                    </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                      <input
+                        type="password"
+                        value={setupConfig.aiModels.configs[setupConfig.aiModels.primary]?.apiKey || ''}
+                        onChange={(e) => updateAIModelAPIConfig(setupConfig.aiModels.primary, 'apiKey', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter API key"
+                      />
+                    </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Model Version</label>
-                    <input
-                      type="text"
-                      value={setupConfig.aiModels.configs[setupConfig.aiModels.primary]?.model || ''}
-                      onChange={(e) => updateAIModelAPIConfig(setupConfig.aiModels.primary, 'model', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="e.g., gpt-4, claude-3-sonnet"
-                    />
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Model Version</label>
+                      <input
+                        type="text"
+                        value={setupConfig.aiModels.configs[setupConfig.aiModels.primary]?.model || ''}
+                        onChange={(e) => updateAIModelAPIConfig(setupConfig.aiModels.primary, 'model', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., gpt-4, claude-3-sonnet"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
 
                 <button
                   onClick={() => testConnection(setupConfig.aiModels.primary, setupConfig.aiModels.configs[setupConfig.aiModels.primary])}
@@ -285,6 +310,26 @@ export const SetupWizard = ({
                   <Zap className="h-4 w-4" />
                   <span>Test Connection</span>
                 </button>
+              </div>
+            )}
+
+            {setupConfig.aiModels.primary === 'free' && (
+              <div className="border-t pt-6">
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="text-lg font-medium text-green-800 mb-2">LineSmart Free Tier Selected</h4>
+                  <p className="text-sm text-green-700 mb-3">
+                    You're using LineSmart's hosted AI service. No API key required!
+                  </p>
+                  <ul className="text-sm text-green-700 space-y-1">
+                    <li>- 50 AI generations per month</li>
+                    <li>- Powered by GPT-4o-mini</li>
+                    <li>- Full training content generation</li>
+                    <li>- Quiz generation included</li>
+                  </ul>
+                  <p className="text-xs text-green-600 mt-3">
+                    Need more? Add your own OpenAI API key for unlimited use.
+                  </p>
+                </div>
               </div>
             )}
           </div>

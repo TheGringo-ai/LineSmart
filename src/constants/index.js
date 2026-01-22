@@ -40,10 +40,11 @@ export const languages = [
 ];
 
 export const aiModels = [
-  { id: 'openai', name: 'OpenAI GPT', description: 'GPT-3.5/GPT-4 models for comprehensive training generation' },
-  { id: 'claude', name: 'Anthropic Claude', description: 'Claude 3 Sonnet/Opus for detailed, safe training content' },
-  { id: 'gemini', name: 'Google Gemini', description: 'Gemini Pro for multimodal training with document analysis' },
-  { id: 'llama', name: 'Meta Llama', description: 'Open-source Llama models for custom deployment' },
+  { id: 'free', name: 'LineSmart Free Tier', description: 'Free AI-powered training (limited to 50 generations/month)', isFree: true, badge: 'FREE' },
+  { id: 'openai', name: 'OpenAI GPT', description: 'GPT-3.5/GPT-4 models - bring your own API key for unlimited use' },
+  { id: 'claude', name: 'Anthropic Claude', description: 'Claude 3 Sonnet/Opus - bring your own API key' },
+  { id: 'gemini', name: 'Google Gemini', description: 'Gemini Pro for multimodal training - bring your own API key' },
+  { id: 'llama', name: 'Local Llama', description: 'Run Llama locally with Ollama - free & private, requires local setup' },
   { id: 'custom', name: 'Custom Model', description: 'Connect your own fine-tuned or enterprise model' }
 ];
 
@@ -61,13 +62,14 @@ export const initialSetupConfig = {
     supportedLanguages: ['en', 'es', 'fr', 'pt', 'de']
   },
   aiModels: {
-    primary: '',
+    primary: 'free',
     secondary: '',
     configs: {
+      free: { model: 'gpt-4o-mini', usesBackend: true },
       openai: { apiKey: '', model: 'gpt-4o-mini', endpoint: '' },
       claude: { apiKey: '', model: 'claude-3-sonnet', endpoint: '' },
       gemini: { apiKey: '', model: 'gemini-pro', endpoint: '' },
-      llama: { apiKey: '', model: 'llama-2-70b', endpoint: '' },
+      llama: { apiKey: '', model: 'llama-2-70b', endpoint: 'http://localhost:11434' },
       custom: { name: '', apiKey: '', model: '', endpoint: '' }
     }
   },
