@@ -390,24 +390,27 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
 
   // Call backend API for training generation
   const callBackendAPI = useCallback(async (prompt, docContent) => {
-    // Try multiple API URLs in order
+    // Use the correct API URL - prioritize the known working URL
     const apiUrls = [
-      process.env.REACT_APP_API_URL,
       'https://linesmart-api-650169261019.us-central1.run.app',
-      'https://linesmartcl-650169261019.us-central1.run.app',
-      window.location.origin // Same origin for production deployment
+      process.env.REACT_APP_API_URL
     ].filter(Boolean);
+
+    // Remove duplicates
+    const uniqueUrls = [...new Set(apiUrls)];
+
+    console.log('🔧 Environment API URL:', process.env.REACT_APP_API_URL || 'NOT SET');
+    console.log('🔧 Will try URLs:', uniqueUrls);
 
     let lastError = null;
 
-    for (const baseUrl of apiUrls) {
+    for (const baseUrl of uniqueUrls) {
       try {
-        const apiUrl = baseUrl.endsWith('/api/ai/generate-training')
-          ? baseUrl
-          : `${baseUrl}/api/ai/generate-training`;
+        const apiUrl = `${baseUrl}/api/ai/generate-training`;
 
         console.log('🔌 Trying backend API at:', apiUrl);
         console.log('📄 Document content length:', docContent?.length || 0, 'characters');
+        console.log('📝 Prompt length:', prompt?.length || 0, 'characters');
 
         const response = await fetch(apiUrl, {
           method: 'POST',
@@ -579,26 +582,53 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
 
   const generateTraining = useCallback(async (currentUserDepartment, setCurrentView) => {
     setIsGenerating(true);
+    console.log('🚀 Starting training generation...');
+    console.log('📋 Training data:', {
+      title: trainingData.title,
+      department: trainingData.department,
+      type: trainingData.trainingType,
+      documentsCount: trainingData.documents?.length || 0
+    });
 
     try {
       const prompt = createTrainingPrompt(currentUserDepartment);
+      console.log('📝 Generated prompt length:', prompt.length);
 
       let apiResponse = null;
+      let apiError = null;
+
       try {
+        console.log('🔌 Calling API...');
         apiResponse = await generateTrainingWithAPI(prompt);
+        console.log('✅ API response received:', apiResponse ? 'Success' : 'Empty');
       } catch (error) {
-        console.log('API generation failed, using enhanced mock data:', error.message);
+        apiError = error;
+        console.error('❌ API generation failed:', error.message);
       }
 
-      const response = apiResponse || generateMockTraining(currentUserDepartment);
-      setGeneratedTraining(response);
-      setCurrentView('review');
+      if (apiResponse && apiResponse.training) {
+        console.log('✅ Using API-generated training');
+        setGeneratedTraining(apiResponse);
+        setCurrentView('review');
+      } else if (apiError) {
+        // Show error to user instead of silently falling back
+        const errorMsg = `Training generation failed: ${apiError.message}\n\nPlease check:\n1. Your internet connection\n2. The API service status\n\nTry again or contact support.`;
+        console.error(errorMsg);
+        alert(errorMsg);
+      } else {
+        // Only use mock data if explicitly requested or no API available
+        console.log('⚠️ No API response, using placeholder training');
+        const mockResponse = generateMockTraining(currentUserDepartment);
+        setGeneratedTraining(mockResponse);
+        setCurrentView('review');
+      }
     } catch (error) {
-      alert('Error generating training. Please check your configuration and try again.');
+      console.error('❌ Training generation error:', error);
+      alert(`Error generating training: ${error.message}\n\nPlease try again.`);
     } finally {
       setIsGenerating(false);
     }
-  }, [createTrainingPrompt, generateTrainingWithAPI, generateMockTraining]);
+  }, [createTrainingPrompt, generateTrainingWithAPI, generateMockTraining, trainingData]);
 
   const resetTrainingData = useCallback(() => {
     setTrainingData(initialTrainingData);

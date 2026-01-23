@@ -4,9 +4,8 @@ FROM node:18-alpine as build
 # Set the working directory in the container
 WORKDIR /app
 
-# Build argument for API URL
-ARG REACT_APP_API_URL
-ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+# Set API URL directly - this gets baked into the build
+ENV REACT_APP_API_URL=https://linesmart-api-650169261019.us-central1.run.app
 
 # Copy package.json and package-lock.json (if available)
 COPY package*.json ./
