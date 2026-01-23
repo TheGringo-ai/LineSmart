@@ -55,17 +55,63 @@ export const getIndustrySuggestions = (industry) => {
 
 /**
  * Parse AI training response to extract JSON
+ * Handles various formats: raw JSON, markdown code blocks, or mixed content
  */
 export const parseTrainingResponse = (content) => {
+  if (!content) {
+    throw new Error('Empty response from AI');
+  }
+
+  let jsonString = content;
+
+  // Try to extract JSON from markdown code blocks
+  const jsonBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    jsonString = jsonBlockMatch[1].trim();
+    console.log('📋 Extracted JSON from code block');
+  } else {
+    // Try to find JSON object in the content (starts with { ends with })
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonString = jsonMatch[0];
+      console.log('📋 Extracted JSON object from response');
+    }
+  }
+
   try {
-    const parsed = JSON.parse(content);
-    if (parsed.training && parsed.quiz) {
+    const parsed = JSON.parse(jsonString);
+
+    // Validate the structure
+    if (parsed.training && Array.isArray(parsed.quiz)) {
+      console.log('✅ Successfully parsed training response with', parsed.quiz.length, 'quiz questions');
       return parsed;
     }
-    throw new Error('Invalid response structure');
-  } catch (error) {
-    console.log('Failed to parse API response as JSON, falling back to mock data');
-    throw error;
+
+    // Try to fix common structure issues
+    if (parsed.training && !parsed.quiz) {
+      console.log('⚠️ No quiz found, adding empty quiz array');
+      parsed.quiz = [];
+      return parsed;
+    }
+
+    throw new Error('Invalid response structure - missing training or quiz');
+  } catch (parseError) {
+    console.error('❌ JSON parse error:', parseError.message);
+    console.log('Raw content (first 500 chars):', jsonString.substring(0, 500));
+
+    // Try to salvage partial JSON
+    try {
+      // Sometimes the response is cut off - try to close it
+      let fixedJson = jsonString;
+      if (!fixedJson.endsWith('}')) {
+        fixedJson = fixedJson + ']}}'
+      }
+      const parsed = JSON.parse(fixedJson);
+      console.log('⚠️ Recovered partial JSON response');
+      return parsed;
+    } catch {
+      throw new Error('Failed to parse AI response as JSON: ' + parseError.message);
+    }
   }
 };
 

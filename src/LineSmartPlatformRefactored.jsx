@@ -18,7 +18,8 @@ import { AddEmployeeModal, EmployeeDetailModal } from './components/modals';
 import { DashboardView, QuizView, ResultsView, ReviewTrainingView } from './components/views';
 
 // Import existing components
-import RAGManager from './components/RAGManager';
+import TrainingDataManager from './components/TrainingDataManager';
+import UserManagement from './components/UserManagement';
 
 // Import setup wizard views
 import SetupWizard from './components/SetupWizard';
@@ -35,7 +36,7 @@ import { getDashboardStats, filterEmployeesByDepartment } from './utils';
  */
 const LineSmartPlatform = () => {
   // Auth context
-  const { currentUser: authUser, userProfile, logout } = useAuth();
+  const { currentUser: authUser, userProfile, logout, refreshUserProfile } = useAuth();
 
   // Company context
   const {
@@ -46,12 +47,14 @@ const LineSmartPlatform = () => {
     updateEmployee: updateFirestoreEmployee,
     saveTraining,
     saveQuizResult,
-    loading: companyLoading
+    loading: companyLoading,
+    rolePermissions
   } = useCompany();
 
-  // View state
-  const [currentView, setCurrentView] = useState('setup');
-  const [showRAGManager, setShowRAGManager] = useState(false);
+  // View state - null means "waiting to determine", then we set the right view
+  const [currentView, setCurrentView] = useState(null);
+  const [showTrainingData, setShowTrainingData] = useState(false);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Custom hooks
   const setupWizard = useSetupWizard();
@@ -69,12 +72,30 @@ const LineSmartPlatform = () => {
     }
   }, [firestoreEmployees]);
 
-  // Sync company config with setup wizard
+  // Determine initial view based on company data - runs once after loading
+  useEffect(() => {
+    if (!companyLoading && !initialLoadDone) {
+      setInitialLoadDone(true);
+      if (company && company.name) {
+        // Company exists - go to dashboard
+        setupWizard.setCompletedSetup(true);
+        setCurrentView('dashboard');
+        console.log('📊 Company loaded:', company.name, '- going to dashboard');
+      } else {
+        // No company - show setup
+        setCurrentView('setup');
+        console.log('🔧 No company found - showing setup');
+      }
+    }
+  }, [companyLoading, company, initialLoadDone]);
+
+  // Sync company config with setup wizard when company data changes
   useEffect(() => {
     if (company) {
       setupWizard.setSetupConfig(prev => ({
         ...prev,
         companyName: company.name || prev.companyName,
+        company: { name: company.name, ...company },
         industry: company.industry || prev.industry,
         companySize: company.size || prev.companySize,
         departments: company.departments || prev.departments,
@@ -83,14 +104,10 @@ const LineSmartPlatform = () => {
         supportedLanguages: company.supportedLanguages || prev.supportedLanguages,
         primaryModel: company.aiModels?.primary || prev.primaryModel,
         secondaryModel: company.aiModels?.secondary || prev.secondaryModel,
-        dataSourceType: company.dataSource?.type || prev.dataSourceType
+        dataSourceType: company.dataSource?.type || prev.dataSourceType,
+        aiModels: company.aiModels || prev.aiModels
       }));
-
-      // If company exists, mark setup as complete
-      if (company.name && company.industry) {
-        setupWizard.setCompletedSetup(true);
-        setCurrentView('dashboard');
-      }
+      setupWizard.setCompletedSetup(true);
     }
   }, [company]);
 
@@ -145,6 +162,8 @@ const LineSmartPlatform = () => {
           probationPeriod: config.probationPeriod
         }
       });
+      // Refresh user profile to get the updated companyId
+      await refreshUserProfile();
       setupWizard.setCompletedSetup(true);
       setCurrentView('dashboard');
     } catch (error) {
@@ -246,8 +265,8 @@ const LineSmartPlatform = () => {
     }
   };
 
-  // Show loading while company data loads
-  if (companyLoading) {
+  // Show loading while company data loads or view is being determined
+  if (companyLoading || currentView === null) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -264,6 +283,7 @@ const LineSmartPlatform = () => {
       <Header
         setupConfig={setupWizard.setupConfig}
         currentUser={currentUser}
+        userProfile={userProfile}
         userTier={userProfile?.tier || 'pro'}
         demoUser={null}
         completedSetup={setupWizard.completedSetup}
@@ -287,8 +307,9 @@ const LineSmartPlatform = () => {
           <NavigationTabs
             currentView={currentView}
             setCurrentView={setCurrentView}
-            setShowRAGManager={setShowRAGManager}
+            setShowTrainingData={setShowTrainingData}
             generatedTraining={trainingGeneration.generatedTraining}
+            canManageUsers={rolePermissions?.canManageUsers || rolePermissions?.canInviteUsers}
           />
         )}
 
@@ -369,11 +390,16 @@ const LineSmartPlatform = () => {
             onComplete={handleCompleteTraining}
           />
         )}
+
+        {/* User Management View */}
+        {currentView === 'users' && setupWizard.completedSetup && (rolePermissions?.canManageUsers || rolePermissions?.canInviteUsers) && (
+          <UserManagement />
+        )}
       </div>
 
-      {/* RAG Manager Modal */}
-      {showRAGManager && (
-        <RAGManager onClose={() => setShowRAGManager(false)} />
+      {/* Training Data Manager Modal */}
+      {showTrainingData && (
+        <TrainingDataManager onClose={() => setShowTrainingData(false)} />
       )}
 
       {/* Add Employee Modal */}

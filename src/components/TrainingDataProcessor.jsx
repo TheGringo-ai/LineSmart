@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Brain, Search, FileText, Layers, Settings, Zap } from 'lucide-react';
 
-const RAGProcessor = ({ documents, onProcessingComplete, isProcessing, onStartProcessing }) => {
+const TrainingDataProcessor = ({ documents, onProcessingComplete, isProcessing, onStartProcessing }) => {
   const [processingSettings, setProcessingSettings] = useState({
     chunkSize: 1000,
     chunkOverlap: 200,
@@ -94,7 +94,7 @@ const RAGProcessor = ({ documents, onProcessingComplete, isProcessing, onStartPr
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <div className="flex items-center space-x-2 mb-6">
         <Brain className="h-5 w-5 text-gray-600" />
-        <h3 className="text-lg font-semibold text-gray-900">🧠 RAG Processing Configuration</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Document Processing Settings</h3>
       </div>
 
       <ProcessingProgress />
@@ -264,7 +264,7 @@ const RAGProcessor = ({ documents, onProcessingComplete, isProcessing, onStartPr
               className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed font-medium flex items-center space-x-2"
             >
               <Brain className="h-5 w-5" />
-              <span>Start RAG Processing</span>
+              <span>Process Documents</span>
             </button>
           </div>
         </div>
@@ -273,4 +273,4 @@ const RAGProcessor = ({ documents, onProcessingComplete, isProcessing, onStartPr
   );
 };
 
-export default RAGProcessor;
+export default TrainingDataProcessor;

@@ -1,14 +1,14 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Upload, FileText, Users, Brain, CheckCircle, AlertCircle, Play, Download, Settings, UserPlus, Target, TrendingUp, Calendar, Award, BookOpen, Plus, Edit3, Eye, Filter, Database, Cloud, Key, Zap, Link, Bot, FileSearch, Search, Building, Globe, Shield, GitBranch } from 'lucide-react';
-import RAGManager from './components/RAGManager';
+import TrainingDataManager from './components/TrainingDataManager';
 import LandingPage from './components/LandingPage';
 
 const LineSmartPlatform = () => {
   const [currentView, setCurrentView] = useState('setup');
   const [setupStep, setSetupStep] = useState('welcome');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [showRAGManager, setShowRAGManager] = useState(false);
+  const [showTrainingData, setShowTrainingData] = useState(false);
   const [showLandingPage, setShowLandingPage] = useState(true);
   const [userTier, setUserTier] = useState(null);
   const [demoUser, setDemoUser] = useState(null);
@@ -964,7 +964,7 @@ RAG Analysis Context:
                         </span>
                       )}
                     </div>
-                <p className="text-sm text-gray-500">Enterprise RAG-Powered Training Platform</p>
+                <p className="text-sm text-gray-500">Enterprise AI-Powered Training Platform</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -974,7 +974,7 @@ RAG Analysis Context:
                     {demoUser ? demoUser.companyName : setupConfig.company.name} • {demoUser ? demoUser.email : `${currentUser?.name} (${currentUser?.role})`}
                   </div>
                   <div className="text-xs text-blue-600">
-                    {demoUser ? 'Demo Mode - Full Features Available' : `${setupConfig.aiModels.primary} • RAG Enabled • ${getLanguageName(setupConfig.company.defaultLanguage)}`}
+                    {demoUser ? 'Demo Mode - Full Features Available' : `${setupConfig.aiModels.primary} • AI Enabled • ${getLanguageName(setupConfig.company.defaultLanguage)}`}
                   </div>
                 </div>
               )}
@@ -1017,9 +1017,9 @@ RAG Analysis Context:
                   <Bot className="h-16 w-16 text-blue-600 mx-auto mb-4" />
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Welcome to Line Smart</h3>
                   <p className="text-gray-600 max-w-2xl mx-auto">
-                    Set up your enterprise AI-powered training platform with RAG (Retrieval Augmented Generation) 
-                    capabilities. We'll help you configure AI models, connect to your data sources, and create 
-                    personalized training experiences for your entire organization.
+                    Set up your enterprise AI-powered training platform. We'll help you configure AI models,
+                    connect to your company documents, and create personalized training experiences
+                    for your entire organization.
                   </p>
                 </div>
 
@@ -1031,8 +1031,8 @@ RAG Analysis Context:
                   </div>
                   <div className="bg-green-50 p-6 rounded-lg">
                     <Database className="h-8 w-8 text-green-600 mb-3 mx-auto" />
-                    <h4 className="font-semibold text-green-900 mb-2">RAG System</h4>
-                    <p className="text-sm text-green-800">Use your company data to create contextual training</p>
+                    <h4 className="font-semibold text-green-900 mb-2">Training Data</h4>
+                    <p className="text-sm text-green-800">Use your company documents to create contextual training</p>
                   </div>
                   <div className="bg-purple-50 p-6 rounded-lg">
                     <Users className="h-8 w-8 text-purple-600 mb-3 mx-auto" />
@@ -1370,13 +1370,13 @@ RAG Analysis Context:
               <div className="bg-white rounded-xl shadow-sm border p-8">
                 <h3 className="text-xl font-semibold mb-6 flex items-center">
                   <Database className="h-5 w-5 mr-2 text-blue-600" />
-                  Data Source & RAG Configuration
+                  Data Source & Document Settings
                 </h3>
 
                 <div className="space-y-8">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-4">
-                      Select Data Source for RAG
+                      Select Data Source for Training Documents
                     </label>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {dataSourceTypes.map(source => (
@@ -1432,7 +1432,7 @@ RAG Analysis Context:
                   )}
 
                   <div className="border-t pt-6">
-                    <h4 className="text-lg font-medium mb-4">RAG System Settings</h4>
+                    <h4 className="text-lg font-medium mb-4">Document Processing Settings</h4>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1609,8 +1609,8 @@ RAG Analysis Context:
                   <CheckCircle className="h-16 w-16 text-green-600 mx-auto mb-4" />
                   <h3 className="text-2xl font-bold text-gray-900 mb-2">Setup Complete!</h3>
                   <p className="text-gray-600 max-w-2xl mx-auto">
-                    Your Line Smart platform is now configured and ready to use. Your company data will be processed 
-                    for RAG-powered training generation, and supervisors can create personalized training experiences.
+                    Your Line Smart platform is now configured and ready to use. Your company documents will be processed
+                    for AI-powered training generation, and supervisors can create personalized training experiences.
                   </p>
                 </div>
 
@@ -1621,7 +1621,7 @@ RAG Analysis Context:
                   </div>
                   <div className="bg-green-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-green-900 mb-2">AI Model: {setupConfig.aiModels.primary}</h4>
-                    <p className="text-sm text-green-800">RAG Enabled with {setupConfig.dataSource.type}</p>
+                    <p className="text-sm text-green-800">Connected to {setupConfig.dataSource.type}</p>
                   </div>
                   <div className="bg-purple-50 p-4 rounded-lg">
                     <h4 className="font-semibold text-purple-900 mb-2">Languages: {setupConfig.company.supportedLanguages.length + 1}</h4>
@@ -1676,11 +1676,11 @@ RAG Analysis Context:
               Create Training
             </button>
             <button
-              onClick={() => setShowRAGManager(true)}
+              onClick={() => setShowTrainingData(true)}
               className="px-4 py-2 rounded-lg text-sm font-medium transition-colors text-gray-600 hover:text-gray-900 hover:bg-white"
             >
               <Database className="h-4 w-4 inline mr-2" />
-              RAG Documents
+              Training Data
             </button>
             <button
               onClick={() => setCurrentView('quiz')}
@@ -1940,12 +1940,12 @@ RAG Analysis Context:
                   </div>
                 </div>
 
-                {/* RAG Analysis */}
+                {/* Document Analysis */}
                 <div className="bg-blue-50 p-4 rounded-lg mb-6">
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="font-medium text-blue-900 flex items-center">
                       <FileSearch className="h-4 w-4 mr-2" />
-                      RAG Analysis
+                      Document Analysis
                     </h3>
                     <button
                       onClick={() => analyzeTrainingWithRAG(selectedEmployee, trainingData.trainingType)}
@@ -2445,7 +2445,7 @@ RAG Analysis Context:
               </div>
 
               <div className="bg-blue-50 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-blue-900 mb-3">🤖 RAG Features Active</h3>
+                <h3 className="text-lg font-semibold text-blue-900 mb-3">AI Training Features Active</h3>
                 <div className="space-y-3 text-sm text-blue-800">
                   <div className="flex items-center space-x-2">
                     <CheckCircle className="h-4 w-4" />
@@ -3100,10 +3100,10 @@ RAG Analysis Context:
           </div>
         )}
 
-        {/* RAG Manager Modal */}
-        {showRAGManager && (
-          <RAGManager
-            onClose={() => setShowRAGManager(false)}
+        {/* Training Data Manager Modal */}
+        {showTrainingData && (
+          <TrainingDataManager
+            onClose={() => setShowTrainingData(false)}
             currentUser={currentUser}
           />
         )}

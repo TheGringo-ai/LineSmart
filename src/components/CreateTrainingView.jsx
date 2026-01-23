@@ -77,12 +77,12 @@ export const CreateTrainingView = ({
             </div>
           </div>
 
-          {/* RAG Analysis */}
+          {/* Training Data Analysis */}
           <div className="bg-blue-50 p-4 rounded-lg mb-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-medium text-blue-900 flex items-center">
                 <FileSearch className="h-4 w-4 mr-2" />
-                RAG Analysis
+                Document Analysis
               </h3>
               <button
                 onClick={onAnalyzeRAG}
@@ -468,7 +468,7 @@ export const CreateTrainingView = ({
         </div>
 
         <div className="bg-blue-50 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">🤖 RAG Features Active</h3>
+          <h3 className="text-lg font-semibold text-blue-900 mb-3">🤖 AI Features Active</h3>
           <div className="space-y-3 text-sm text-blue-800">
             {['Company document analysis', 'Performance-based recommendations', 'Multi-language policy integration'].map((item, i) => (
               <div key={i} className="flex items-center space-x-2">

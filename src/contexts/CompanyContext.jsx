@@ -6,13 +6,12 @@ import {
   updateDoc,
   collection,
   query,
-  where,
   onSnapshot,
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { useAuth } from './AuthContext';
-import { userRoles } from '../constants';
+import { userRoles, employeeIdConfig } from '../constants';
 
 const CompanyContext = createContext();
 
@@ -22,6 +21,28 @@ export const useCompany = () => {
     throw new Error('useCompany must be used within a CompanyProvider');
   }
   return context;
+};
+
+// Generate unique employee ID for a company
+const generateEmployeeId = async (companyId) => {
+  const companyRef = doc(db, 'companies', companyId);
+  const companySnap = await getDoc(companyRef);
+
+  let nextNumber = 1;
+  if (companySnap.exists()) {
+    const data = companySnap.data();
+    nextNumber = (data.lastEmployeeNumber || 0) + 1;
+  }
+
+  // Update the company's last employee number
+  await updateDoc(companyRef, {
+    lastEmployeeNumber: nextNumber
+  });
+
+  // Format the employee ID (e.g., EMP-0001)
+  const { prefix, digits } = employeeIdConfig;
+  const paddedNumber = String(nextNumber).padStart(digits, '0');
+  return `${prefix}-${paddedNumber}`;
 };
 
 export const CompanyProvider = ({ children }) => {
@@ -46,13 +67,21 @@ export const CompanyProvider = ({ children }) => {
       return allEmployees;
     }
 
-    // Managers see only their department
-    if (userRole === 'manager' && userDepartment) {
+    // Managers and Supervisors see only their department
+    if (['manager', 'supervisor'].includes(userRole) && userDepartment) {
       return allEmployees.filter(emp => emp.department === userDepartment);
     }
 
-    // Employees see only themselves
-    if (userRole === 'employee') {
+    // Leads see their team members (same department, lower level roles)
+    if (userRole === 'lead' && userDepartment) {
+      return allEmployees.filter(emp =>
+        emp.department === userDepartment &&
+        ['technician', 'operator', 'employee'].includes(emp.role)
+      );
+    }
+
+    // Technicians, operators, and employees see only themselves
+    if (['technician', 'operator', 'employee'].includes(userRole)) {
       return allEmployees.filter(emp => emp.userId === currentUser?.uid);
     }
 
@@ -135,6 +164,7 @@ export const CompanyProvider = ({ children }) => {
 
       const companyRef = doc(db, 'companies', id);
       const docSnap = await getDoc(companyRef);
+      const isNewCompany = !docSnap.exists();
 
       if (docSnap.exists()) {
         await updateDoc(companyRef, {
@@ -142,12 +172,55 @@ export const CompanyProvider = ({ children }) => {
           updated_at: serverTimestamp()
         });
       } else {
+        // New company - initialize with lastEmployeeNumber
         await setDoc(companyRef, {
           ...companyData,
           ownerId: currentUser?.uid,
+          lastEmployeeNumber: 0,
           created_at: serverTimestamp(),
           updated_at: serverTimestamp()
         });
+      }
+
+      // Update user profile with companyId and create owner as first employee
+      if (currentUser?.uid) {
+        const userRef = doc(db, 'users', currentUser.uid);
+        const userSnap = await getDoc(userRef);
+        const userData = userSnap.data() || {};
+
+        // Generate employee ID for owner if not already set
+        let employeeId = userData.employeeId;
+        if (!employeeId && isNewCompany) {
+          employeeId = await generateEmployeeId(id);
+
+          // Create owner as employee in company
+          const ownerEmployeeRef = doc(db, 'companies', id, 'employees', employeeId);
+          await setDoc(ownerEmployeeRef, {
+            userId: currentUser.uid,
+            employeeId: employeeId,
+            name: currentUser.displayName || userData.displayName || 'Admin',
+            email: currentUser.email,
+            role: 'admin',
+            department: 'Management',
+            position: 'Administrator',
+            status: 'active',
+            hireDate: new Date().toISOString().split('T')[0],
+            completedTrainings: 0,
+            totalTrainings: 0,
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+          });
+        }
+
+        // Update user profile
+        await updateDoc(userRef, {
+          companyId: id,
+          employeeId: employeeId || userData.employeeId,
+          role: userData.role || 'admin',
+          updated_at: serverTimestamp()
+        });
+
+        console.log('👤 User assigned to company:', id, 'Employee ID:', employeeId || userData.employeeId);
       }
 
       return id;
@@ -157,17 +230,22 @@ export const CompanyProvider = ({ children }) => {
     }
   }, [companyId, currentUser]);
 
-  // Add employee
+  // Add employee with unique employee ID
   const addEmployee = useCallback(async (employeeData) => {
     try {
       setError(null);
       if (!companyId) throw new Error('No company ID');
 
-      const employeesRef = collection(db, 'companies', companyId, 'employees');
-      const newEmployeeRef = doc(employeesRef);
+      // Generate unique employee ID
+      const employeeId = await generateEmployeeId(companyId);
 
-      await setDoc(newEmployeeRef, {
+      // Use employee ID as the document ID for easy lookup
+      const employeeRef = doc(db, 'companies', companyId, 'employees', employeeId);
+
+      await setDoc(employeeRef, {
         ...employeeData,
+        employeeId: employeeId,
+        status: 'active',
         completedTrainings: 0,
         totalTrainings: 0,
         performance: 0,
@@ -178,7 +256,8 @@ export const CompanyProvider = ({ children }) => {
         updated_at: serverTimestamp()
       });
 
-      return newEmployeeRef.id;
+      console.log('👤 New employee created with ID:', employeeId);
+      return employeeId;
     } catch (err) {
       setError(err.message);
       throw err;

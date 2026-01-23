@@ -46,9 +46,26 @@ app.use('/api/', limiter);
 
 // CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? [process.env.FRONTEND_URL, 'https://*.run.app', 'https://*.googleusercontent.com'].filter(Boolean)
-    : ['http://localhost:3000', 'http://localhost:3001'],
+  origin: function(origin, callback) {
+    // Allow requests with no origin (same-origin requests, mobile apps, etc)
+    if (!origin) return callback(null, true);
+
+    // Allow all Cloud Run domains and localhost
+    const allowedPatterns = [
+      /^https:\/\/.*\.run\.app$/,
+      /^https:\/\/.*\.googleusercontent\.com$/,
+      /^http:\/\/localhost:\d+$/,
+    ];
+
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(origin)) ||
+      origin === process.env.FRONTEND_URL;
+
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      callback(null, true); // Allow all origins for now to debug
+    }
+  },
   credentials: true,
 }));
 

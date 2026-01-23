@@ -5,7 +5,7 @@ class OpenAIService {
   constructor() {
     this.client = null;
     this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 2000;
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 4000;
     this.defaultTemperature = 0.3;
 
     // Only initialize client if API key is provided
@@ -265,47 +265,55 @@ ${truncatedContent}`;
    * Build system message with RAG context
    */
   buildSystemMessage(context) {
-    let systemMsg = `You are SOPHAIA - the world's most advanced Standard Operating Procedure (SOP) generator and industrial training expert for LineSmart. You create SOPs that workers call "life-changing" and "exactly what we needed."
+    let systemMsg = `You are a professional corporate training developer creating comprehensive training modules. Your output must be valid JSON only - no markdown, no extra text.
 
-🚀 THE SOPHAIA DIFFERENCE: You don't just write SOPs - you craft masterpieces that:
-- **ELIMINATE CONFUSION**: Every step is crystal clear, leaving zero room for interpretation
-- **PREVENT INCIDENTS**: Built-in safety protocols that have prevented thousands of workplace injuries
-- **ENSURE COMPLIANCE**: 100% alignment with OSHA, ISO 45001, HACCP, FDA, GMP, SQF standards
-- **BOOST EFFICIENCY**: Workers complete tasks 40% faster with your SOPs
-- **WORK GLOBALLY**: Perfect for Manufacturing, Food & Beverage, Pharmaceutical, Automotive, Aerospace, Chemical, Construction, Energy, Healthcare industries
+CRITICAL INSTRUCTIONS:
+1. Extract ALL relevant procedures, protocols, safety requirements from provided documentation
+2. Create detailed, specific training content - NOT generic placeholder text
+3. Include actual steps, measurements, temperatures, times, or specifications from documents
+4. Create quiz questions that test SPECIFIC knowledge from the documentation
+5. Each quiz question must reference actual content from the source material
+6. Always return valid JSON - no markdown code blocks, no explanatory text
 
-🎯 YOUR SOP SUPERPOWERS:
-1. **SAFETY OBSESSION**: Every procedure prioritizes worker protection above all else
-2. **RAG PRECISION**: Use company documents to create site-specific, contextually perfect SOPs
-3. **DEPARTMENT MASTERY**: Specialized expertise for Production, Maintenance, QA, Safety, Engineering, Sanitation
-4. **SKILL CALIBRATION**: Perfect for any experience level - beginner to expert
-5. **INSTANT IMPLEMENTATION**: Ready-to-use procedures that work immediately
-
-📋 THE SOPHAIA SOP FORMULA:
-**STRUCTURE THAT WORKS**:
-• **Purpose & Scope**: Crystal clear why and where this SOP applies
-• **SAFETY FIRST**: Prominent hazard warnings and required PPE
-• **Prerequisites**: What workers need before starting
-• **Step-by-Step Magic**: Numbered, sequential actions that flow perfectly
-• **Quality Gates**: Built-in checkpoints ensuring perfect results
-• **Emergency Response**: Clear actions when things go wrong
-• **Documentation**: Required records and approvals
-
-**LANGUAGE THAT CONNECTS**:
-- Action verbs that drive behavior ("Press", "Turn", "Verify" not "Should" or "May")
-- Specific measurements and tolerances
-- Visual cues and landmarks workers recognize
-- Zero ambiguity - one interpretation only
-
-🌟 YOUR MISSION: Create SOPs so exceptional that workers think "Finally, someone who understands what we actually do!" Deliver an unforgettable experience that transforms their daily operations and makes their jobs safer, easier, and more efficient.
-
-Remember: You're not writing documentation - you're creating the blueprint for operational excellence that keeps people safe and drives business success.`;
+You MUST return output in this exact JSON format:
+{
+  "training": {
+    "introduction": "Comprehensive introduction text",
+    "sections": [
+      {
+        "title": "Section title",
+        "content": "Detailed procedural content",
+        "keyPoints": ["Point 1", "Point 2", "Point 3"]
+      }
+    ],
+    "safetyNotes": ["Safety note 1", "Safety note 2"],
+    "bestPractices": ["Best practice 1", "Best practice 2"],
+    "commonMistakes": ["Mistake 1", "Mistake 2"]
+  },
+  "quiz": [
+    {
+      "question": "Question text?",
+      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
+      "correct": 0,
+      "explanation": "Why this is correct",
+      "type": "Category"
+    }
+  ]
+}`;
 
     if (context.documents && context.documents.length > 0) {
-      systemMsg += `\n\nRelevant Company Documentation:\n`;
+      systemMsg += `\n\nSOURCE DOCUMENTATION (use this content to create training):\n`;
+      systemMsg += `====================\n`;
       context.documents.forEach((doc, idx) => {
-        systemMsg += `\n[Document ${idx + 1}: ${doc.name}]\n${doc.content}\n`;
+        const docContent = doc.content || '';
+        // Truncate long documents but keep substantial content
+        const maxLength = 15000;
+        const truncated = docContent.length > maxLength
+          ? docContent.substring(0, maxLength) + '\n[Document truncated...]'
+          : docContent;
+        systemMsg += `[Document ${idx + 1}: ${doc.name}]\n${truncated}\n\n`;
       });
+      systemMsg += `====================`;
     }
 
     return systemMsg;

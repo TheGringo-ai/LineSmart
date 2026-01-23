@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './contexts/AuthContext';
 import { LoginPage, SignupPage, ProtectedRoute } from './components/auth';
+import JoinPage from './components/auth/JoinPage';
 import LineSmartPlatform from './LineSmartPlatformRefactored';
 
 /**
@@ -13,6 +14,17 @@ const App = () => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+  const [isJoinPage, setIsJoinPage] = useState(false);
+
+  // Check if we're on the /join page
+  useEffect(() => {
+    const checkJoinPath = () => {
+      setIsJoinPage(window.location.pathname === '/join');
+    };
+    checkJoinPath();
+    window.addEventListener('popstate', checkJoinPath);
+    return () => window.removeEventListener('popstate', checkJoinPath);
+  }, []);
 
   const handleForgotPassword = async () => {
     if (!resetEmail) {
@@ -26,6 +38,11 @@ const App = () => {
       setResetMessage('Error sending reset email. Please try again.');
     }
   };
+
+  // Show join page if on /join path (before auth check)
+  if (isJoinPage) {
+    return <JoinPage />;
+  }
 
   // Show loading state
   if (loading) {

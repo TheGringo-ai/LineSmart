@@ -5,6 +5,65 @@ import logger from '../config/logger.js';
 const router = express.Router();
 
 /**
+ * Parse training response from AI to extract JSON
+ */
+function parseTrainingResponse(content) {
+  if (!content) {
+    throw new Error('Empty response from AI');
+  }
+
+  let jsonString = content;
+
+  // Try to extract JSON from markdown code blocks
+  const jsonBlockMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (jsonBlockMatch) {
+    jsonString = jsonBlockMatch[1].trim();
+    logger.info('Extracted JSON from code block');
+  } else {
+    // Try to find JSON object in the content
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonString = jsonMatch[0];
+      logger.info('Extracted JSON object from response');
+    }
+  }
+
+  try {
+    const parsed = JSON.parse(jsonString);
+
+    // Validate the structure
+    if (parsed.training && Array.isArray(parsed.quiz)) {
+      logger.info('Successfully parsed training response', { quizCount: parsed.quiz.length });
+      return parsed;
+    }
+
+    // Try to fix common structure issues
+    if (parsed.training && !parsed.quiz) {
+      logger.warn('No quiz found, adding empty quiz array');
+      parsed.quiz = [];
+      return parsed;
+    }
+
+    throw new Error('Invalid response structure - missing training or quiz');
+  } catch (parseError) {
+    logger.error('JSON parse error', { error: parseError.message });
+
+    // Try to salvage partial JSON
+    try {
+      let fixedJson = jsonString;
+      if (!fixedJson.endsWith('}')) {
+        fixedJson = fixedJson + ']}}';
+      }
+      const parsed = JSON.parse(fixedJson);
+      logger.warn('Recovered partial JSON response');
+      return parsed;
+    } catch {
+      throw new Error('Failed to parse AI response as JSON: ' + parseError.message);
+    }
+  }
+}
+
+/**
  * POST /api/ai/generate-training
  * Generate training content
  */
@@ -20,14 +79,59 @@ router.post('/generate-training', async (req, res) => {
 
     logger.info('Training content generation request', {
       provider: options?.provider,
-      hasContext: !!context
+      hasContext: !!context,
+      hasDocumentContent: !!context?.documentContent,
+      documentLength: context?.documentContent?.length || 0
     });
 
-    const result = await aiManager.generateTrainingContent(prompt, context, options);
+    // Include document content in the context if provided
+    const enrichedContext = {
+      ...context,
+      documents: context?.documentContent ? [{
+        name: 'Uploaded Document',
+        content: context.documentContent
+      }] : context?.documents || []
+    };
+
+    // Use higher token limit for comprehensive training
+    const enrichedOptions = {
+      ...options,
+      maxTokens: options?.maxTokens || 4000
+    };
+
+    const result = await aiManager.generateTrainingContent(prompt, enrichedContext, enrichedOptions);
+
+    // Parse the AI response to extract structured training data
+    let trainingData;
+    try {
+      trainingData = parseTrainingResponse(result.content);
+    } catch (parseError) {
+      logger.error('Failed to parse training response', { error: parseError.message });
+      // Return a fallback structure
+      trainingData = {
+        training: {
+          introduction: result.content.substring(0, 500),
+          sections: [{
+            title: 'Generated Content',
+            content: result.content,
+            keyPoints: ['Review the full content for detailed information']
+          }],
+          safetyNotes: ['Follow all safety procedures'],
+          bestPractices: ['Review documentation before starting'],
+          commonMistakes: ['Not following documented procedures']
+        },
+        quiz: []
+      };
+    }
 
     res.json({
       success: true,
-      data: result
+      data: trainingData,
+      meta: {
+        provider: result.provider,
+        model: result.model,
+        usage: result.usage
+      }
     });
   } catch (error) {
     logger.error('Training generation endpoint error', { error: error.message });

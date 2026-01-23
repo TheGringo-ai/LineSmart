@@ -359,7 +359,7 @@ export const SetupWizard = ({
         <div className="bg-white rounded-xl shadow-sm border p-8">
           <h3 className="text-xl font-semibold mb-6 flex items-center">
             <Database className="h-5 w-5 mr-2 text-blue-600" />
-            Data Source & RAG Configuration
+            Data Source & Training Data Configuration
           </h3>
 
           <div className="space-y-8">
@@ -387,7 +387,7 @@ export const SetupWizard = ({
             </div>
 
             <div className="border-t pt-6">
-              <h4 className="text-lg font-medium mb-4">RAG System Settings</h4>
+              <h4 className="text-lg font-medium mb-4">Training Data Settings</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Chunk Size</label>
@@ -519,7 +519,7 @@ export const SetupWizard = ({
             </div>
             <div className="bg-green-50 p-4 rounded-lg">
               <h4 className="font-semibold text-green-900 mb-2">AI Model: {setupConfig.aiModels.primary}</h4>
-              <p className="text-sm text-green-800">RAG Enabled with {setupConfig.dataSource.type}</p>
+              <p className="text-sm text-green-800">Training Data: {setupConfig.dataSource.type}</p>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
               <h4 className="font-semibold text-purple-900 mb-2">Languages: {setupConfig.company.supportedLanguages.length + 1}</h4>

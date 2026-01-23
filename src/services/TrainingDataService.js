@@ -1,6 +1,6 @@
-// RAG Processing Service for document analysis and vector embeddings
+// Training Data Processing Service for document analysis and vector embeddings
 
-class RAGService {
+class TrainingDataService {
   constructor(config) {
     this.config = config;
     this.embeddingModel = config.embeddingModel || 'text-embedding-ada-002';
@@ -35,7 +35,7 @@ class RAGService {
         extractedText: extractedText.substring(0, 500) + '...' // Preview
       };
     } catch (error) {
-      console.error('RAG processing failed:', error);
+      console.error('Document processing failed:', error);
       return {
         success: false,
         error: error.message,
@@ -92,7 +92,7 @@ class RAGService {
 
   async extractTextFromXlsx(document) {
     // In a real implementation, you would use SheetJS or a backend service
-    return `[XLSX Content from ${document.name}]\n\nThis would contain the extracted data from the Excel spreadsheet. The implementation would parse all sheets and convert the data into a structured text format suitable for RAG processing.`;
+    return `[XLSX Content from ${document.name}]\n\nThis would contain the extracted data from the Excel spreadsheet. The implementation would parse all sheets and convert the data into a structured text format suitable for training data processing.`;
   }
 
   async extractTextFromCSV(document) {
@@ -485,4 +485,4 @@ class RAGService {
   }
 }
 
-export default RAGService;
+export default TrainingDataService;

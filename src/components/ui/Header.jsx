@@ -8,6 +8,7 @@ import { getLanguageName } from '../../utils';
 export const Header = ({
   setupConfig,
   currentUser,
+  userProfile,
   userTier,
   demoUser,
   completedSetup,
@@ -15,6 +16,9 @@ export const Header = ({
   onLogout,
   showLogout = false
 }) => {
+  const employeeId = userProfile?.employeeId || currentUser?.employeeId;
+  const companyName = setupConfig?.company?.name || setupConfig?.companyName || 'Company';
+
   return (
     <div className="bg-white shadow-sm border-b">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -30,19 +34,24 @@ export const Header = ({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500">Enterprise RAG-Powered Training Platform</p>
+              <p className="text-sm text-gray-500">AI-Powered Training Platform</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             {(completedSetup || demoUser) && (
               <div className="text-right">
-                <div className="text-sm text-gray-500">
-                  {demoUser ? demoUser.companyName : (setupConfig?.company?.name || setupConfig?.companyName || 'Company')} • {demoUser ? demoUser.email : `${currentUser?.name || 'User'} (${currentUser?.role || 'admin'})`}
+                <div className="text-sm text-gray-700 font-medium">
+                  {demoUser ? demoUser.companyName : companyName}
                 </div>
-                <div className="text-xs text-blue-600">
+                <div className="text-sm text-gray-500">
+                  {demoUser ? demoUser.email : `${currentUser?.name || 'User'}`}
+                  {employeeId && <span className="ml-2 font-mono text-blue-600">({employeeId})</span>}
+                  <span className="ml-1 text-gray-400">• {currentUser?.role || 'admin'}</span>
+                </div>
+                <div className="text-xs text-gray-400">
                   {demoUser
                     ? 'Demo Mode - Full Features Available'
-                    : `${setupConfig?.aiModels?.primary || setupConfig?.primaryModel || 'AI'} • RAG Enabled • ${getLanguageName(setupConfig?.company?.defaultLanguage || setupConfig?.defaultLanguage || 'en')}`
+                    : `${setupConfig?.aiModels?.primary || setupConfig?.primaryModel || 'gpt-4o-mini'} • ${getLanguageName(setupConfig?.company?.defaultLanguage || setupConfig?.defaultLanguage || 'en')}`
                   }
                 </div>
               </div>

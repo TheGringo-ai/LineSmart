@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, Plus, Database, Award, Eye } from 'lucide-react';
+import { Users, Plus, Database, Award, Eye, UserPlus } from 'lucide-react';
 
 /**
  * Navigation tabs component for switching between views
@@ -7,8 +7,9 @@ import { Users, Plus, Database, Award, Eye } from 'lucide-react';
 export const NavigationTabs = ({
   currentView,
   setCurrentView,
-  setShowRAGManager,
-  generatedTraining
+  setShowTrainingData,
+  generatedTraining,
+  canManageUsers = false
 }) => {
   const tabs = [
     {
@@ -24,11 +25,11 @@ export const NavigationTabs = ({
       disabled: false
     },
     {
-      id: 'rag',
-      label: 'RAG Documents',
+      id: 'training-data',
+      label: 'Training Data',
       icon: Database,
       disabled: false,
-      onClick: () => setShowRAGManager(true)
+      onClick: () => setShowTrainingData(true)
     },
     {
       id: 'quiz',
@@ -41,7 +42,13 @@ export const NavigationTabs = ({
       label: 'Review Training',
       icon: Eye,
       disabled: !generatedTraining
-    }
+    },
+    ...(canManageUsers ? [{
+      id: 'users',
+      label: 'User Management',
+      icon: UserPlus,
+      disabled: false
+    }] : [])
   ];
 
   return (

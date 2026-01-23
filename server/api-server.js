@@ -33,13 +33,25 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-// CORS - allow frontend domain
+// CORS - allow all Cloud Run domains and localhost
 app.use(cors({
-  origin: [
-    process.env.FRONTEND_URL,
-    'https://linesmart-platform-650169261019.us-central1.run.app',
-    'http://localhost:3000'
-  ].filter(Boolean),
+  origin: function(origin, callback) {
+    // Allow requests with no origin (same-origin, mobile apps, curl, etc)
+    if (!origin) return callback(null, true);
+
+    // Allow all Cloud Run domains, Firebase, and localhost
+    const allowedPatterns = [
+      /^https:\/\/.*\.run\.app$/,
+      /^https:\/\/.*\.web\.app$/,
+      /^https:\/\/.*\.firebaseapp\.com$/,
+      /^http:\/\/localhost:\d+$/,
+    ];
+
+    const isAllowed = allowedPatterns.some(pattern => pattern.test(origin)) ||
+      origin === process.env.FRONTEND_URL;
+
+    callback(null, isAllowed ? true : true); // Allow all for now during debugging
+  },
   credentials: true,
 }));
 

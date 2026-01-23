@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Database, Upload, Settings, Brain, FileText, Search } from 'lucide-react';
 import DocumentUpload from './DocumentUpload';
-import RAGDocumentLibrary from './RAGDocumentLibrary';
+import TrainingDataLibrary from './TrainingDataLibrary';
 import StorageConfiguration from './StorageConfiguration';
-import RAGProcessor from './RAGProcessor';
+import TrainingDataProcessor from './TrainingDataProcessor';
 
-const RAGManager = ({ onClose, currentUser }) => {
+const TrainingDataManager = ({ onClose, currentUser }) => {
   const [activeTab, setActiveTab] = useState('upload');
   const [documents, setDocuments] = useState([
     // Mock documents for demonstration
@@ -70,7 +70,7 @@ const RAGManager = ({ onClose, currentUser }) => {
   const tabs = [
     { id: 'upload', name: 'Upload Documents', icon: Upload },
     { id: 'library', name: 'Document Library', icon: FileText },
-    { id: 'processing', name: 'RAG Processing', icon: Brain },
+    { id: 'processing', name: 'Process Documents', icon: Brain },
     { id: 'storage', name: 'Storage Settings', icon: Settings }
   ];
 
@@ -121,10 +121,10 @@ const RAGManager = ({ onClose, currentUser }) => {
     });
   };
 
-  const handleStartRAGProcessing = async (settings) => {
+  const handleStartProcessing = async (settings) => {
     setIsProcessing(true);
-    
-    // Simulate RAG processing
+
+    // Simulate document processing
     const totalDocs = documents.length;
     for (let i = 0; i < totalDocs; i++) {
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -150,7 +150,7 @@ const RAGManager = ({ onClose, currentUser }) => {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
             <Database className="h-6 w-6 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">RAG Document Management</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Training Data Management</h2>
           </div>
           <button
             onClick={onClose}
@@ -207,7 +207,7 @@ const RAGManager = ({ onClose, currentUser }) => {
                 />
               </div>
 
-              <RAGDocumentLibrary
+              <TrainingDataLibrary
                 documents={documents}
                 onDocumentSelect={handleDocumentSelect}
                 onDocumentDelete={handleDocumentDelete}
@@ -218,10 +218,10 @@ const RAGManager = ({ onClose, currentUser }) => {
           )}
 
           {activeTab === 'processing' && (
-            <RAGProcessor
+            <TrainingDataProcessor
               documents={documents}
               isProcessing={isProcessing}
-              onStartProcessing={handleStartRAGProcessing}
+              onStartProcessing={handleStartProcessing}
               processingStats={processingStats}
             />
           )}
@@ -262,4 +262,4 @@ const RAGManager = ({ onClose, currentUser }) => {
   );
 };
 
-export default RAGManager;
+export default TrainingDataManager;

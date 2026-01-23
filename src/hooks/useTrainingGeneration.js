@@ -1,6 +1,57 @@
 import { useState, useCallback, useRef } from 'react';
 import { initialTrainingData, languages } from '../constants';
 import { parseTrainingResponse } from '../utils';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Set up PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+/**
+ * Extract text content from a PDF file
+ */
+const extractTextFromPDF = async (file) => {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += pageText + '\n\n';
+    }
+
+    return fullText.trim();
+  } catch (error) {
+    console.error('Error extracting PDF text:', error);
+    return null;
+  }
+};
+
+/**
+ * Extract text from various document types
+ */
+const extractDocumentText = async (file) => {
+  const fileType = file.type || file.name.split('.').pop().toLowerCase();
+
+  if (fileType === 'application/pdf' || file.name.endsWith('.pdf')) {
+    return await extractTextFromPDF(file);
+  }
+
+  // For text files
+  if (fileType.includes('text') || file.name.endsWith('.txt')) {
+    return await file.text();
+  }
+
+  // For other files, try to read as text
+  try {
+    return await file.text();
+  } catch {
+    console.warn(`Could not extract text from ${file.name}`);
+    return null;
+  }
+};
 
 /**
  * Custom hook for managing training generation state and API calls
@@ -11,6 +62,7 @@ export const useTrainingGeneration = (setupConfig, employees) => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [ragAnalysis, setRagAnalysis] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [documentContent, setDocumentContent] = useState('');
   const fileInputRef = useRef(null);
 
   const updateTrainingData = useCallback((field, value) => {
@@ -33,123 +85,223 @@ export const useTrainingGeneration = (setupConfig, employees) => {
     }));
   }, []);
 
-  const handleFileUpload = useCallback((e) => {
+  const handleFileUpload = useCallback(async (e) => {
     const files = Array.from(e.target.files);
-    setTrainingData(prev => ({
-      ...prev,
-      documents: [...prev.documents, ...files.map(file => ({
+
+    // Process each file and extract text
+    const processedDocs = await Promise.all(files.map(async (file) => {
+      const extractedText = await extractDocumentText(file);
+      return {
         name: file.name,
         size: file.size,
         type: file.type,
-        file: file
-      }))]
+        file: file,
+        extractedText: extractedText
+      };
     }));
+
+    // Update documents list
+    setTrainingData(prev => ({
+      ...prev,
+      documents: [...prev.documents, ...processedDocs]
+    }));
+
+    // Combine all extracted text
+    const allText = processedDocs
+      .filter(doc => doc.extractedText)
+      .map(doc => `=== ${doc.name} ===\n${doc.extractedText}`)
+      .join('\n\n');
+
+    if (allText) {
+      setDocumentContent(prev => prev ? `${prev}\n\n${allText}` : allText);
+      console.log('📄 Extracted text from documents:', allText.substring(0, 500) + '...');
+    }
   }, []);
 
   const removeDocument = useCallback((index) => {
-    setTrainingData(prev => ({
-      ...prev,
-      documents: prev.documents.filter((_, i) => i !== index)
-    }));
+    setTrainingData(prev => {
+      const removedDoc = prev.documents[index];
+      const newDocs = prev.documents.filter((_, i) => i !== index);
+
+      // Recalculate document content
+      const newContent = newDocs
+        .filter(doc => doc.extractedText)
+        .map(doc => `=== ${doc.name} ===\n${doc.extractedText}`)
+        .join('\n\n');
+      setDocumentContent(newContent);
+
+      return { ...prev, documents: newDocs };
+    });
   }, []);
 
   const analyzeTrainingWithRAG = useCallback(async (employee, trainingType) => {
     setIsAnalyzing(true);
 
     try {
-      // Mock RAG analysis - replace with actual API call
-      const mockAnalysis = {
-        relevantDocuments: [
-          { name: 'Safety_Manual_2024.pdf', relevance: 0.95, chunks: 3 },
-          { name: 'Equipment_Procedures.docx', relevance: 0.88, chunks: 2 },
-          { name: 'Company_Policies.pdf', relevance: 0.76, chunks: 1 }
-        ],
-        suggestedContent: [
-          'Based on your safety manual, emphasis should be placed on PPE requirements specific to maintenance roles',
-          'Recent equipment updates documented in procedures require additional hydraulic system training',
-          'Company policy changes from Q3 2024 affect maintenance scheduling protocols'
-        ],
-        performanceGaps: [
-          'Equipment troubleshooting scores below department average',
-          'Safety compliance needs reinforcement based on recent incidents',
-          'Documentation practices need improvement per quality standards'
-        ],
+      // Analyze actual uploaded documents
+      const uploadedDocs = trainingData.documents || [];
+
+      if (uploadedDocs.length === 0) {
+        setRagAnalysis({
+          relevantDocuments: [],
+          suggestedContent: ['No documents uploaded yet. Upload training materials to generate content.'],
+          performanceGaps: [],
+          recommendedTrainings: []
+        });
+        return;
+      }
+
+      // Get document names and content summary
+      const docAnalysis = uploadedDocs.map(doc => ({
+        name: doc.name,
+        relevance: 1.0,
+        hasContent: !!doc.extractedText,
+        contentPreview: doc.extractedText ? doc.extractedText.substring(0, 200) + '...' : 'Content not extracted'
+      }));
+
+      // Extract key topics from document content
+      const allContent = uploadedDocs
+        .filter(doc => doc.extractedText)
+        .map(doc => doc.extractedText)
+        .join(' ');
+
+      // Simple keyword extraction for suggested content
+      const suggestedContent = [];
+      if (allContent.toLowerCase().includes('safety')) {
+        suggestedContent.push('Safety procedures and requirements identified in documents');
+      }
+      if (allContent.toLowerCase().includes('maintenance')) {
+        suggestedContent.push('Maintenance procedures found in uploaded materials');
+      }
+      if (allContent.toLowerCase().includes('equipment') || allContent.toLowerCase().includes('machine')) {
+        suggestedContent.push('Equipment operation guidelines available');
+      }
+      if (allContent.toLowerCase().includes('procedure') || allContent.toLowerCase().includes('protocol')) {
+        suggestedContent.push('Standard operating procedures documented');
+      }
+      if (suggestedContent.length === 0) {
+        suggestedContent.push(`Document content ready for training generation (${allContent.length} characters extracted)`);
+      }
+
+      const analysis = {
+        relevantDocuments: docAnalysis,
+        suggestedContent: suggestedContent,
+        performanceGaps: [],
         recommendedTrainings: [
           {
-            title: 'Advanced Equipment Diagnostics',
-            reason: 'Based on performance analysis and new equipment documentation',
+            title: trainingType || trainingData.title || 'Custom Training',
+            reason: `Based on ${uploadedDocs.length} uploaded document(s)`,
             priority: 'high',
-            estimatedDuration: '4 hours',
-            ragSources: ['Equipment_Manual_v3.pdf', 'Troubleshooting_Guide.docx']
-          },
-          {
-            title: 'Updated Safety Protocols',
-            reason: 'Recent policy changes and incident analysis',
-            priority: 'medium',
-            estimatedDuration: '2 hours',
-            ragSources: ['Safety_Updates_2024.pdf', 'Incident_Reports.xlsx']
+            estimatedDuration: '1-2 hours',
+            ragSources: uploadedDocs.map(d => d.name)
           }
-        ]
+        ],
+        totalContentLength: allContent.length
       };
 
-      setRagAnalysis(mockAnalysis);
+      setRagAnalysis(analysis);
+      console.log('📊 Document analysis complete:', analysis);
     } catch (error) {
-      console.error('RAG analysis failed:', error);
+      console.error('Document analysis failed:', error);
+      setRagAnalysis({
+        relevantDocuments: [],
+        suggestedContent: ['Error analyzing documents: ' + error.message],
+        performanceGaps: [],
+        recommendedTrainings: []
+      });
     } finally {
       setIsAnalyzing(false);
     }
-  }, []);
+  }, [trainingData.documents, trainingData.title]);
 
   const createTrainingPrompt = useCallback((currentUserDepartment) => {
     const targetLanguage = languages.find(lang => lang.code === trainingData.language)?.name || 'English';
-    const assignedEmployeeNames = trainingData.trainingScope === 'individual'
-      ? trainingData.assignedEmployees.map(id => employees.find(emp => emp.id === id)?.name).join(', ')
-      : trainingData.trainingScope === 'department'
-        ? `All ${currentUserDepartment} department employees`
-        : 'All company employees';
+    const companyName = setupConfig?.company?.name || setupConfig?.companyName || 'Company';
+    const questionCount = trainingData.quizConfig?.questionCount || 10;
 
-    return `Create a comprehensive training module in ${targetLanguage} for:
-- Job Title: ${trainingData.title}
-- Company: ${setupConfig.company.name}
-- Department: ${trainingData.department}
-- Target: ${assignedEmployeeNames}
+    // Get all document text (from previously uploaded docs + current ones)
+    const allDocText = trainingData.documents
+      .filter(doc => doc.extractedText)
+      .map(doc => doc.extractedText)
+      .join('\n\n');
+
+    const combinedDocContent = documentContent || allDocText;
+
+    // Truncate if too long (keep most important content)
+    const maxDocLength = 20000;
+    const truncatedDocContent = combinedDocContent.length > maxDocLength
+      ? combinedDocContent.substring(0, maxDocLength) + '\n\n[Document continues...]'
+      : combinedDocContent;
+
+    console.log('📄 Document content length:', combinedDocContent.length, 'characters');
+
+    if (!truncatedDocContent || truncatedDocContent.length < 100) {
+      console.warn('⚠️ No document content available for training generation');
+    }
+
+    return `You are a professional corporate training developer for ${companyName}. Create a comprehensive, enterprise-grade training module based EXCLUSIVELY on the documentation provided below.
+
+TRAINING REQUIREMENTS:
+- Title: ${trainingData.title || 'Training Module'}
+- Department: ${trainingData.department || 'General'}
 - Language: ${targetLanguage}
+- Quiz Questions Required: ${questionCount}
 
-${ragAnalysis ? `Context from company documents:
-- Relevant documents: ${ragAnalysis.relevantDocuments.map(doc => doc.name).join(', ')}
-- Key insights: ${ragAnalysis.suggestedContent.join(' ')}
-- Performance gaps: ${ragAnalysis.performanceGaps.join(' ')}` : ''}
+SOURCE DOCUMENTATION:
+====================
+${truncatedDocContent || 'No documentation provided. Create a general training outline.'}
+====================
 
-Return a JSON object with this exact structure:
+CRITICAL INSTRUCTIONS:
+1. Extract ALL relevant procedures, protocols, safety requirements, and best practices from the documentation above
+2. Create detailed, specific training content - NOT generic placeholder text
+3. Include actual steps, measurements, temperatures, times, or specifications mentioned in the documents
+4. Create ${questionCount} quiz questions that test SPECIFIC knowledge from the documents
+5. Each quiz question must reference actual content from the documentation
+6. Include safety warnings and compliance requirements mentioned in the docs
+
+Return ONLY valid JSON (no markdown code blocks, no extra text):
 {
   "training": {
-    "introduction": "Welcome message and overview",
+    "introduction": "Comprehensive introduction to ${trainingData.title} covering the key topics from the documentation",
     "sections": [
       {
-        "title": "Section title",
-        "content": "Section content",
-        "keyPoints": ["Point 1", "Point 2", "Point 3"],
-        "ragSources": ["doc1.pdf", "doc2.pdf"]
+        "title": "Section title from document",
+        "content": "Detailed procedural content with specific steps, measurements, and requirements from the documentation. Include numbered steps if applicable.",
+        "keyPoints": ["Specific technical point 1", "Specific technical point 2", "Specific technical point 3", "Specific technical point 4"]
+      },
+      {
+        "title": "Another key section",
+        "content": "More detailed content from documents",
+        "keyPoints": ["Point 1", "Point 2", "Point 3"]
+      },
+      {
+        "title": "Safety and Compliance",
+        "content": "Safety requirements and compliance information from documentation",
+        "keyPoints": ["Safety point 1", "Safety point 2", "Safety point 3"]
       }
     ],
-    "safetyNotes": ["Safety point 1", "Safety point 2"],
-    "bestPractices": ["Practice 1", "Practice 2"],
-    "commonMistakes": ["Mistake 1", "Mistake 2"]
+    "safetyNotes": ["Specific safety requirement from docs", "Another safety requirement", "PPE or protection requirements"],
+    "bestPractices": ["Best practice 1 from docs", "Best practice 2", "Best practice 3"],
+    "commonMistakes": ["Common error to avoid", "Another mistake", "Third mistake to prevent"]
   },
   "quiz": [
     {
-      "question": "Question text?",
-      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
-      "correct": 1,
-      "explanation": "Explanation of correct answer",
-      "type": "Question type",
-      "ragSource": "source_document.pdf"
+      "question": "Specific question about content from the documentation?",
+      "options": ["A) Correct answer from docs", "B) Plausible but wrong", "C) Another wrong option", "D) Fourth option"],
+      "correct": 0,
+      "explanation": "This is correct because [reference to document content]",
+      "type": "Procedures"
     }
   ]
-}`;
-  }, [trainingData, employees, setupConfig, ragAnalysis]);
+}
+
+Generate EXACTLY ${questionCount} quiz questions covering different aspects of the documentation.`;
+  }, [trainingData, setupConfig, documentContent]);
 
   const callUserConfiguredAPI = useCallback(async ([modelName, config], prompt) => {
+    console.log(`🤖 Calling ${modelName} API with prompt length: ${prompt.length} characters`);
+
     if (modelName === 'openai' && config.apiKey) {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -159,14 +311,24 @@ Return a JSON object with this exact structure:
         },
         body: JSON.stringify({
           model: config.model || 'gpt-4o-mini',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000,
-          temperature: 0.7
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a professional corporate training developer. Create comprehensive, detailed training content based on provided documentation. Always return valid JSON only, no markdown.'
+            },
+            { role: 'user', content: prompt }
+          ],
+          max_tokens: 4000,
+          temperature: 0.3
         })
       });
 
-      if (!response.ok) throw new Error(`OpenAI API error: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`OpenAI API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      }
       const data = await response.json();
+      console.log('✅ OpenAI response received, parsing...');
       return parseTrainingResponse(data.choices[0].message.content);
     }
 
@@ -175,26 +337,34 @@ Return a JSON object with this exact structure:
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.apiKey}`,
+          'x-api-key': config.apiKey,
           'anthropic-version': '2023-06-01'
         },
         body: JSON.stringify({
           model: config.model || 'claude-3-sonnet-20240229',
+          system: 'You are a professional corporate training developer. Create comprehensive, detailed training content based on provided documentation. Always return valid JSON only, no markdown.',
           messages: [{ role: 'user', content: prompt }],
-          max_tokens: 2000
+          max_tokens: 4000
         })
       });
 
-      if (!response.ok) throw new Error(`Anthropic API error: ${response.status}`);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Anthropic API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      }
       const data = await response.json();
+      console.log('✅ Anthropic response received, parsing...');
       return parseTrainingResponse(data.content[0].text);
     }
 
-    throw new Error(`Model ${modelName} not implemented yet`);
+    throw new Error(`Model ${modelName} not configured with API key`);
   }, []);
 
   const callFreeLlamaAPI = useCallback(async (prompt) => {
-    console.log('🦙 Using free LLaMA API as fallback...');
+    console.log('🦙 Using free LLaMA API as fallback (limited capabilities)...');
+
+    // Truncate prompt for LLaMA which has limited context
+    const truncatedPrompt = prompt.length > 8000 ? prompt.substring(0, 8000) + '\n\n[Content truncated. Generate training based on the content above.]' : prompt;
 
     const response = await fetch('https://chatterfix-llama-api-650169261019.us-central1.run.app/v1/chat/completions', {
       method: 'POST',
@@ -203,9 +373,9 @@ Return a JSON object with this exact structure:
       },
       body: JSON.stringify({
         model: 'llama3.2:1b',
-        messages: [{ role: 'user', content: prompt }],
-        max_tokens: 2000,
-        temperature: 0.7
+        messages: [{ role: 'user', content: truncatedPrompt }],
+        max_tokens: 3000,
+        temperature: 0.5
       })
     });
 
@@ -214,106 +384,198 @@ Return a JSON object with this exact structure:
     }
 
     const data = await response.json();
+    console.log('✅ LLaMA response received, parsing...');
     return parseTrainingResponse(data.choices[0].message.content);
   }, []);
 
+  // Call backend API for training generation
+  const callBackendAPI = useCallback(async (prompt, docContent) => {
+    // Try multiple API URLs in order
+    const apiUrls = [
+      process.env.REACT_APP_API_URL,
+      'https://linesmart-api-650169261019.us-central1.run.app',
+      'https://linesmartcl-650169261019.us-central1.run.app',
+      window.location.origin // Same origin for production deployment
+    ].filter(Boolean);
+
+    let lastError = null;
+
+    for (const baseUrl of apiUrls) {
+      try {
+        const apiUrl = baseUrl.endsWith('/api/ai/generate-training')
+          ? baseUrl
+          : `${baseUrl}/api/ai/generate-training`;
+
+        console.log('🔌 Trying backend API at:', apiUrl);
+        console.log('📄 Document content length:', docContent?.length || 0, 'characters');
+
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            prompt: prompt,
+            context: {
+              documentContent: docContent,
+              company: setupConfig?.company?.name || setupConfig?.companyName,
+              department: trainingData.department
+            },
+            options: {
+              questionCount: trainingData.quizConfig?.questionCount || 10,
+              maxTokens: 4000
+            }
+          })
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(`API error: ${response.status} - ${errorData.message || 'Unknown error'}`);
+        }
+
+        const result = await response.json();
+        console.log('✅ Backend API response received:', result.success ? 'Success' : 'Failed');
+
+        if (result.success && result.data) {
+          // The backend now returns parsed training data directly
+          return result.data;
+        }
+        throw new Error('Invalid response structure from backend');
+      } catch (error) {
+        console.log(`❌ API call to ${baseUrl} failed:`, error.message);
+        lastError = error;
+      }
+    }
+
+    throw lastError || new Error('All backend API attempts failed');
+  }, [setupConfig, trainingData.department, trainingData.quizConfig?.questionCount]);
+
   const generateTrainingWithAPI = useCallback(async (prompt) => {
-    const enabledModels = Object.entries(setupConfig.aiModels.configs).filter(([key, config]) =>
-      config.apiKey && key !== 'llama'
+    // Get document content
+    const allDocText = trainingData.documents
+      .filter(doc => doc.extractedText)
+      .map(doc => doc.extractedText)
+      .join('\n\n');
+    const docContent = documentContent || allDocText;
+
+    // First try backend API (has server-side API keys)
+    try {
+      return await callBackendAPI(prompt, docContent);
+    } catch (backendError) {
+      console.log('Backend API failed:', backendError.message);
+    }
+
+    // Then try user-configured API keys
+    const enabledModels = Object.entries(setupConfig?.aiModels?.configs || {}).filter(([key, config]) =>
+      config?.apiKey && key !== 'llama'
     );
 
     if (enabledModels.length > 0) {
       try {
         return await callUserConfiguredAPI(enabledModels[0], prompt);
       } catch (error) {
-        console.log('User API failed, falling back to free LLaMA:', error.message);
+        console.log('User API failed:', error.message);
       }
     }
 
+    // Finally fall back to free LLaMA
+    console.log('⚠️ Falling back to free LLaMA API (limited capabilities)');
     return await callFreeLlamaAPI(prompt);
-  }, [setupConfig.aiModels.configs, callUserConfiguredAPI, callFreeLlamaAPI]);
+  }, [setupConfig, trainingData.documents, documentContent, callBackendAPI, callUserConfiguredAPI, callFreeLlamaAPI]);
 
   const generateMockTraining = useCallback((currentUserDepartment) => {
     const isSpanish = trainingData.language === 'es';
-    const assignedEmployeeNames = trainingData.trainingScope === 'individual'
-      ? trainingData.assignedEmployees.map(id => employees.find(emp => emp.id === id)?.name).join(', ')
-      : trainingData.trainingScope === 'department'
-        ? `All ${currentUserDepartment} department employees`
-        : 'All company employees';
+    const companyName = setupConfig?.company?.name || setupConfig?.companyName || 'Company';
+    const uploadedDocs = trainingData.documents || [];
+    const hasDocuments = uploadedDocs.some(doc => doc.extractedText);
 
+    // If we have document content, create a better fallback
+    if (hasDocuments) {
+      const docContent = uploadedDocs
+        .filter(doc => doc.extractedText)
+        .map(doc => doc.extractedText)
+        .join('\n');
+
+      // Extract some content snippets for the training
+      const contentSnippets = docContent.substring(0, 2000).split('\n').filter(line => line.trim().length > 20);
+
+      return {
+        training: {
+          introduction: `Welcome to the ${trainingData.title} training module. This training is based on your uploaded documentation and covers key procedures and requirements.`,
+          sections: [
+            {
+              title: "Overview from Documentation",
+              content: `This training is generated from your uploaded documents: ${uploadedDocs.map(d => d.name).join(', ')}. The content below summarizes key information from these materials.`,
+              keyPoints: contentSnippets.slice(0, 5).map(s => s.substring(0, 100))
+            },
+            {
+              title: "Key Procedures",
+              content: contentSnippets.slice(5, 10).join(' ') || "Review the uploaded documentation for detailed procedures.",
+              keyPoints: [
+                "Follow all documented procedures",
+                "Refer to source materials for specific requirements",
+                "Contact supervisor for clarification when needed"
+              ]
+            }
+          ],
+          safetyNotes: [
+            "Always follow safety procedures outlined in documentation",
+            "Report any safety concerns immediately"
+          ],
+          bestPractices: [
+            "Review documentation before starting tasks",
+            "Keep training materials accessible for reference"
+          ],
+          commonMistakes: [
+            "Skipping documented steps",
+            "Not referring to updated procedures"
+          ]
+        },
+        quiz: [
+          {
+            question: "What should you always do before starting a new task?",
+            options: ["A) Review the documented procedures", "B) Skip to the practical work", "C) Ask a coworker what to do", "D) Use your best judgment"],
+            correct: 0,
+            explanation: "Always review documented procedures before starting any task to ensure compliance and safety.",
+            type: "General Knowledge"
+          }
+        ],
+        ragAnalysis: ragAnalysis,
+        note: "Training generated from uploaded documents. For better results, ensure an AI API key is configured."
+      };
+    }
+
+    // Original fallback for when no documents are uploaded
     return {
       training: {
         introduction: isSpanish ?
-          `Bienvenido al módulo de capacitación ${trainingData.title} para ${setupConfig.company.name}. Esta capacitación ha sido personalizada utilizando los procedimientos y políticas específicos de nuestra empresa.` :
-          `Welcome to the ${trainingData.title} training module for ${setupConfig.company.name}. This training has been customized using our company's specific procedures and policies.`,
+          `Bienvenido al módulo de capacitación ${trainingData.title} para ${companyName}.` :
+          `Welcome to the ${trainingData.title} training module for ${companyName}. Please upload training documents to generate customized content.`,
         sections: [
           {
-            title: isSpanish ? "Procedimientos Específicos de la Empresa" : "Company-Specific Procedures",
+            title: isSpanish ? "Contenido Pendiente" : "Content Pending",
             content: isSpanish ?
-              `Esta sección se basa en nuestros procedimientos y políticas más recientes de la empresa.` :
-              `This section is based on our latest company procedures and policies.`,
+              `Por favor suba documentos de capacitación para generar contenido personalizado.` :
+              `Please upload training documents (PDF, TXT) to generate comprehensive training content based on your materials.`,
             keyPoints: isSpanish ? [
-              "Seguir protocolos específicos de la empresa",
-              "Aplicar requisitos de seguridad específicos del departamento",
-              "Utilizar herramientas y métodos aprobados por la empresa"
+              "Suba manuales de la empresa",
+              "Incluya procedimientos de seguridad",
+              "Agregue guías de operación"
             ] : [
-              "Follow company-specific protocols",
-              "Apply department-specific safety requirements",
-              "Utilize company-approved tools and methods"
-            ],
-            ragSources: ragAnalysis ? ragAnalysis.relevantDocuments.map(doc => doc.name) : []
+              "Upload company manuals",
+              "Include safety procedures",
+              "Add operation guides"
+            ]
           }
         ],
-        safetyNotes: isSpanish ? [
-          `Seguir todos los protocolos de seguridad de ${setupConfig.company.name}`,
-          "Cumplir con los requisitos específicos de EPP"
-        ] : [
-          `Follow all ${setupConfig.company.name} safety protocols`,
-          "Comply with company-specific PPE requirements"
-        ],
-        bestPractices: isSpanish ? [
-          "Utilizar mejores prácticas aprobadas por la empresa"
-        ] : [
-          "Utilize company-approved best practices"
-        ],
-        commonMistakes: isSpanish ? [
-          "Desviarse de los procedimientos establecidos"
-        ] : [
-          "Deviating from established procedures"
-        ]
+        safetyNotes: [isSpanish ? "Siempre siga los protocolos de seguridad" : "Always follow safety protocols"],
+        bestPractices: [isSpanish ? "Revise la documentación regularmente" : "Review documentation regularly"],
+        commonMistakes: [isSpanish ? "No revisar procedimientos actualizados" : "Not reviewing updated procedures"]
       },
-      quiz: (isSpanish ? [
-        {
-          question: `Según el manual de seguridad de ${setupConfig.company.name}, ¿cuál es el primer paso requerido?`,
-          options: [
-            "A) Revisar las pautas generales",
-            "B) Completar la lista de verificación pre-operacional",
-            "C) Pedir permiso al supervisor",
-            "D) Revisar los procedimientos estándar"
-          ],
-          correct: 1,
-          explanation: `El manual de ${setupConfig.company.name} requiere completar la lista de verificación.`,
-          type: "Política de la Empresa",
-          ragSource: "Manual_Seguridad.pdf"
-        }
-      ] : [
-        {
-          question: `According to ${setupConfig.company.name} safety manual, what is the first required step?`,
-          options: [
-            "A) Check general guidelines",
-            "B) Complete pre-operation checklist",
-            "C) Ask supervisor for permission",
-            "D) Review standard procedures"
-          ],
-          correct: 1,
-          explanation: `${setupConfig.company.name}'s manual requires completing the checklist.`,
-          type: "Company Policy",
-          ragSource: "Safety_Manual.pdf"
-        }
-      ]).slice(0, trainingData.quizConfig?.questionCount || 5),
+      quiz: [],
       ragAnalysis: ragAnalysis
     };
-  }, [trainingData, employees, setupConfig, ragAnalysis]);
+  }, [trainingData, setupConfig, ragAnalysis]);
 
   const generateTraining = useCallback(async (currentUserDepartment, setCurrentView) => {
     setIsGenerating(true);
@@ -342,6 +604,7 @@ Return a JSON object with this exact structure:
     setTrainingData(initialTrainingData);
     setGeneratedTraining(null);
     setRagAnalysis(null);
+    setDocumentContent('');
   }, []);
 
   const getEnabledModels = useCallback(() => {
@@ -361,6 +624,7 @@ Return a JSON object with this exact structure:
     isGenerating,
     ragAnalysis,
     isAnalyzing,
+    documentContent,
     fileInputRef,
     handleFileUpload,
     removeDocument,

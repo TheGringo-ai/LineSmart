@@ -82,7 +82,7 @@ export const initialSetupConfig = {
       sharepoint: { siteUrl: '', tenantId: '', clientId: '', clientSecret: '' },
       local: { path: '', format: '' }
     },
-    ragSettings: {
+    trainingDataSettings: {
       enabled: true,
       chunkSize: 1000,
       overlap: 200,
@@ -116,7 +116,7 @@ export const initialTrainingData = {
   documents: [],
   assignedEmployees: [],
   dueDate: '',
-  ragSources: [],
+  sourceDocs: [],
   aiModel: 'primary',
   language: 'en',
   trainingScope: 'individual',
@@ -154,13 +154,13 @@ export const sampleEmployees = [
     performance: 92,
     certifications: ['OSHA 30', 'Electrical Safety'],
     trainingHistory: [
-      { id: 1, title: 'Lockout/Tagout Procedures', date: '2024-07-20', score: 95, status: 'completed', language: 'en', ragSources: ['Manual_LOTO_v2.pdf', 'Safety_Protocol_2024.docx'] },
-      { id: 2, title: 'Equipment Maintenance', date: '2024-07-15', score: 88, status: 'completed', language: 'en', ragSources: ['Maintenance_Guide.pdf'] },
-      { id: 3, title: 'Safety Protocols', date: '2024-07-10', score: 92, status: 'completed', language: 'en', ragSources: ['Company_Safety_Manual.pdf', 'OSHA_Guidelines.pdf'] }
+      { id: 1, title: 'Lockout/Tagout Procedures', date: '2024-07-20', score: 95, status: 'completed', language: 'en', sourceDocs: ['Manual_LOTO_v2.pdf', 'Safety_Protocol_2024.docx'] },
+      { id: 2, title: 'Equipment Maintenance', date: '2024-07-15', score: 88, status: 'completed', language: 'en', sourceDocs: ['Maintenance_Guide.pdf'] },
+      { id: 3, title: 'Safety Protocols', date: '2024-07-10', score: 92, status: 'completed', language: 'en', sourceDocs: ['Company_Safety_Manual.pdf', 'OSHA_Guidelines.pdf'] }
     ],
     recommendedTrainings: [
-      { title: 'Advanced Hydraulic Systems', reason: 'Based on recent equipment updates and internal documentation analysis', priority: 'high', ragSources: ['Hydraulic_Manual_2024.pdf'] },
-      { title: 'Emergency Response', reason: 'Due for annual recertification per company policy', priority: 'medium', ragSources: ['Emergency_Procedures.docx'] }
+      { title: 'Advanced Hydraulic Systems', reason: 'Based on recent equipment updates and internal documentation analysis', priority: 'high', sourceDocs: ['Hydraulic_Manual_2024.pdf'] },
+      { title: 'Emergency Response', reason: 'Due for annual recertification per company policy', priority: 'medium', sourceDocs: ['Emergency_Procedures.docx'] }
     ]
   },
   {
@@ -178,8 +178,8 @@ export const sampleEmployees = [
     performance: 85,
     certifications: ['Food Safety'],
     trainingHistory: [
-      { id: 4, title: 'SQF Compliance', date: '2024-07-18', score: 82, status: 'completed', language: 'en', ragSources: ['SQF_Manual.pdf'] },
-      { id: 5, title: 'Quality Control', date: '2024-07-12', score: 88, status: 'completed', language: 'en', ragSources: ['Quality_Guidelines.pdf'] }
+      { id: 4, title: 'SQF Compliance', date: '2024-07-18', score: 82, status: 'completed', language: 'en', sourceDocs: ['SQF_Manual.pdf'] },
+      { id: 5, title: 'Quality Control', date: '2024-07-12', score: 88, status: 'completed', language: 'en', sourceDocs: ['Quality_Guidelines.pdf'] }
     ],
     recommendedTrainings: [
       { title: 'Advanced Quality Control', reason: 'Based on recent quality metrics', priority: 'high' },
@@ -203,8 +203,8 @@ export const sampleEmployees = [
     supervisesEmployees: [1],
     canCreateTraining: true,
     trainingHistory: [
-      { id: 6, title: 'Hazard Communication', date: '2024-07-22', score: 98, status: 'completed', language: 'en', ragSources: ['OSHA_Standards.pdf'] },
-      { id: 7, title: 'Incident Investigation', date: '2024-07-17', score: 94, status: 'completed', language: 'en', ragSources: ['Investigation_Manual.pdf'] }
+      { id: 6, title: 'Hazard Communication', date: '2024-07-22', score: 98, status: 'completed', language: 'en', sourceDocs: ['OSHA_Standards.pdf'] },
+      { id: 7, title: 'Incident Investigation', date: '2024-07-17', score: 94, status: 'completed', language: 'en', sourceDocs: ['Investigation_Manual.pdf'] }
     ],
     recommendedTrainings: [
       { title: 'Industrial Hygiene', reason: 'Skill enhancement opportunity', priority: 'medium' }
@@ -225,8 +225,8 @@ export const sampleEmployees = [
     performance: 78,
     certifications: ['Basic Safety'],
     trainingHistory: [
-      { id: 8, title: 'Orientación de Seguridad', date: '2024-07-10', score: 85, status: 'completed', language: 'es', ragSources: ['Manual_Seguridad_ES.pdf'] },
-      { id: 9, title: 'Procedimientos de Calidad', date: '2024-06-20', score: 82, status: 'completed', language: 'es', ragSources: ['Calidad_Manual_ES.pdf'] }
+      { id: 8, title: 'Orientación de Seguridad', date: '2024-07-10', score: 85, status: 'completed', language: 'es', sourceDocs: ['Manual_Seguridad_ES.pdf'] },
+      { id: 9, title: 'Procedimientos de Calidad', date: '2024-06-20', score: 82, status: 'completed', language: 'es', sourceDocs: ['Calidad_Manual_ES.pdf'] }
     ],
     recommendedTrainings: [
       { title: 'Seguridad Alimentaria Avanzada', reason: 'Necesario para certificación departamental', priority: 'high' },
@@ -250,7 +250,7 @@ export const sampleEmployees = [
     supervisesEmployees: [2, 4],
     canCreateTraining: true,
     trainingHistory: [
-      { id: 10, title: 'Leadership Development', date: '2024-07-25', score: 96, status: 'completed', language: 'en', ragSources: ['Leadership_Guide.pdf'] }
+      { id: 10, title: 'Leadership Development', date: '2024-07-25', score: 96, status: 'completed', language: 'en', sourceDocs: ['Leadership_Guide.pdf'] }
     ],
     recommendedTrainings: [
       { title: 'Advanced Lean Manufacturing', reason: 'Process improvement initiative', priority: 'medium' }
@@ -258,7 +258,7 @@ export const sampleEmployees = [
   }
 ];
 
-// Setup wizard steps - simplified flow (skip complex RAG config for quick start)
+// Setup wizard steps - simplified flow for quick start
 export const setupSteps = ['welcome', 'company', 'ai-models', 'complete'];
 
 // Full setup steps (for advanced users)
@@ -269,31 +269,150 @@ export const userRoles = {
   admin: {
     name: 'Administrator',
     description: 'Full access to all company data and settings',
+    level: 1,
     canViewAllEmployees: true,
     canViewAllDepartments: true,
     canManageUsers: true,
+    canInviteUsers: true,
     canManageSettings: true,
     canCreateTraining: true,
-    canDeleteTraining: true
+    canAssignTraining: true,
+    canApproveTraining: true,
+    canDeleteTraining: true,
+    canViewReports: true,
+    canExportData: true
   },
   manager: {
-    name: 'Manager/Supervisor',
-    description: 'Access to their department employees and training',
+    name: 'Manager',
+    description: 'Department management and training approval',
+    level: 2,
     canViewAllEmployees: false,
     canViewAllDepartments: false,
     canManageUsers: false,
+    canInviteUsers: true,
     canManageSettings: false,
     canCreateTraining: true,
-    canDeleteTraining: false
+    canAssignTraining: true,
+    canApproveTraining: true,
+    canDeleteTraining: false,
+    canViewReports: true,
+    canExportData: true
+  },
+  supervisor: {
+    name: 'Supervisor',
+    description: 'Team oversight and training creation',
+    level: 3,
+    canViewAllEmployees: false,
+    canViewAllDepartments: false,
+    canManageUsers: false,
+    canInviteUsers: false,
+    canManageSettings: false,
+    canCreateTraining: true,
+    canAssignTraining: true,
+    canApproveTraining: false,
+    canDeleteTraining: false,
+    canViewReports: true,
+    canExportData: false
+  },
+  lead: {
+    name: 'Team Lead',
+    description: 'Lead a team and assign training',
+    level: 4,
+    canViewAllEmployees: false,
+    canViewAllDepartments: false,
+    canManageUsers: false,
+    canInviteUsers: false,
+    canManageSettings: false,
+    canCreateTraining: false,
+    canAssignTraining: true,
+    canApproveTraining: false,
+    canDeleteTraining: false,
+    canViewReports: true,
+    canExportData: false
+  },
+  technician: {
+    name: 'Technician',
+    description: 'Technical role with own training access',
+    level: 5,
+    canViewAllEmployees: false,
+    canViewAllDepartments: false,
+    canManageUsers: false,
+    canInviteUsers: false,
+    canManageSettings: false,
+    canCreateTraining: false,
+    canAssignTraining: false,
+    canApproveTraining: false,
+    canDeleteTraining: false,
+    canViewReports: false,
+    canExportData: false
+  },
+  operator: {
+    name: 'Operator',
+    description: 'Production/operations role with own training access',
+    level: 5,
+    canViewAllEmployees: false,
+    canViewAllDepartments: false,
+    canManageUsers: false,
+    canInviteUsers: false,
+    canManageSettings: false,
+    canCreateTraining: false,
+    canAssignTraining: false,
+    canApproveTraining: false,
+    canDeleteTraining: false,
+    canViewReports: false,
+    canExportData: false
   },
   employee: {
     name: 'Employee',
-    description: 'Access to their own training and progress',
+    description: 'General employee with own training access',
+    level: 6,
     canViewAllEmployees: false,
     canViewAllDepartments: false,
     canManageUsers: false,
+    canInviteUsers: false,
     canManageSettings: false,
     canCreateTraining: false,
-    canDeleteTraining: false
+    canAssignTraining: false,
+    canApproveTraining: false,
+    canDeleteTraining: false,
+    canViewReports: false,
+    canExportData: false
   }
+};
+
+// Position/Job titles by department
+export const positionsByDepartment = {
+  Production: ['Line Operator', 'Machine Operator', 'Production Lead', 'Production Supervisor', 'Production Manager'],
+  Maintenance: ['Maintenance Technician', 'Electrician', 'Mechanic', 'Maintenance Lead', 'Maintenance Supervisor', 'Maintenance Manager'],
+  'Quality Assurance': ['QA Inspector', 'QA Technician', 'QA Lead', 'QA Supervisor', 'QA Manager'],
+  Safety: ['Safety Coordinator', 'Safety Specialist', 'Safety Supervisor', 'Safety Manager', 'EHS Manager'],
+  Warehouse: ['Warehouse Associate', 'Forklift Operator', 'Shipping Clerk', 'Warehouse Lead', 'Warehouse Supervisor', 'Warehouse Manager'],
+  Sanitation: ['Sanitation Worker', 'Sanitation Lead', 'Sanitation Supervisor', 'Sanitation Manager'],
+  Management: ['Director', 'Plant Manager', 'Operations Manager', 'General Manager'],
+  HR: ['HR Coordinator', 'HR Specialist', 'HR Manager', 'HR Director'],
+  Engineering: ['Process Engineer', 'Manufacturing Engineer', 'Engineering Manager'],
+  'R&D': ['Research Scientist', 'R&D Technician', 'R&D Manager'],
+  Logistics: ['Logistics Coordinator', 'Logistics Analyst', 'Logistics Manager']
+};
+
+// Employee ID configuration
+export const employeeIdConfig = {
+  prefix: 'EMP',
+  digits: 4,
+  format: 'PREFIX-NUMBER' // e.g., EMP-0001
+};
+
+// Invitation status
+export const inviteStatus = {
+  pending: { label: 'Pending', color: 'yellow' },
+  accepted: { label: 'Accepted', color: 'green' },
+  expired: { label: 'Expired', color: 'red' },
+  cancelled: { label: 'Cancelled', color: 'gray' }
+};
+
+// Onboarding status
+export const onboardingStatus = {
+  not_started: { label: 'Not Started', color: 'gray' },
+  in_progress: { label: 'In Progress', color: 'blue' },
+  completed: { label: 'Completed', color: 'green' }
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, FileText, Image, Calendar, User, Tag, Filter, Download, Eye, Trash2 } from 'lucide-react';
 
-const RAGDocumentLibrary = ({ documents, onDocumentSelect, onDocumentDelete, searchQuery, onSearchChange }) => {
+const TrainingDataLibrary = ({ documents, onDocumentSelect, onDocumentDelete, searchQuery, onSearchChange }) => {
   const [filteredDocuments, setFilteredDocuments] = useState(documents || []);
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
@@ -261,4 +261,4 @@ const RAGDocumentLibrary = ({ documents, onDocumentSelect, onDocumentDelete, sea
   );
 };
 
-export default RAGDocumentLibrary;
+export default TrainingDataLibrary;
