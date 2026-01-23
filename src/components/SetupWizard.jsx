@@ -32,7 +32,8 @@ export const SetupWizard = ({
   currentStepIndex,
   totalSteps,
   progressPercentage,
-  setCurrentView
+  setCurrentView,
+  onComplete
 }) => {
   const dataSourceTypes = [
     { id: 'googleDrive', name: 'Google Drive', icon: <Cloud className="h-5 w-5" />, description: 'Connect to Google Drive folders' },
@@ -529,14 +530,53 @@ export const SetupWizard = ({
 
           <div className="flex justify-center space-x-4">
             <button
-              onClick={() => setCurrentView('dashboard')}
+              onClick={async () => {
+                if (onComplete) {
+                  await onComplete({
+                    companyName: setupConfig.company.name,
+                    industry: setupConfig.company.industry,
+                    companySize: setupConfig.company.size,
+                    departments: setupConfig.company.departments,
+                    safetyRequirements: setupConfig.company.safetyRequirements,
+                    defaultLanguage: setupConfig.company.defaultLanguage,
+                    supportedLanguages: setupConfig.company.supportedLanguages,
+                    primaryModel: setupConfig.aiModels.primary,
+                    secondaryModel: setupConfig.aiModels.secondary,
+                    modelConfigs: setupConfig.aiModels.configs,
+                    dataSourceType: setupConfig.dataSource.type,
+                    ragSettings: setupConfig.dataSource.trainingDataSettings,
+                    defaultTrainings: setupConfig.onboarding.defaultTrainings,
+                    probationPeriod: setupConfig.onboarding.probationPeriod
+                  });
+                }
+              }}
               className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
             >
               <Users className="h-4 w-4" />
               <span>Go to Dashboard</span>
             </button>
             <button
-              onClick={() => setCurrentView('create')}
+              onClick={async () => {
+                if (onComplete) {
+                  await onComplete({
+                    companyName: setupConfig.company.name,
+                    industry: setupConfig.company.industry,
+                    companySize: setupConfig.company.size,
+                    departments: setupConfig.company.departments,
+                    safetyRequirements: setupConfig.company.safetyRequirements,
+                    defaultLanguage: setupConfig.company.defaultLanguage,
+                    supportedLanguages: setupConfig.company.supportedLanguages,
+                    primaryModel: setupConfig.aiModels.primary,
+                    secondaryModel: setupConfig.aiModels.secondary,
+                    modelConfigs: setupConfig.aiModels.configs,
+                    dataSourceType: setupConfig.dataSource.type,
+                    ragSettings: setupConfig.dataSource.trainingDataSettings,
+                    defaultTrainings: setupConfig.onboarding.defaultTrainings,
+                    probationPeriod: setupConfig.onboarding.probationPeriod
+                  });
+                }
+                setCurrentView('create');
+              }}
               className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
             >
               <CheckCircle className="h-4 w-4" />
