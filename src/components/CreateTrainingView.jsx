@@ -422,7 +422,7 @@ export const CreateTrainingView = ({
             {/* Generate Button */}
             <button
               onClick={onGenerateTraining}
-              disabled={!trainingData.title || !trainingData.department || !trainingData.trainingType || (trainingData.trainingScope === 'individual' && trainingData.assignedEmployees.length === 0) || isGenerating}
+              disabled={!trainingData.title || !trainingData.department || !trainingData.trainingType || isGenerating}
               className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isGenerating ? (

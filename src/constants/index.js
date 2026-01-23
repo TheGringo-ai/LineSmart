@@ -119,7 +119,7 @@ export const initialTrainingData = {
   sourceDocs: [],
   aiModel: 'primary',
   language: 'en',
-  trainingScope: 'individual',
+  trainingScope: 'department',
   supervisorId: null,
   quizConfig: {
     questionCount: 5,
