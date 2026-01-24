@@ -25,24 +25,29 @@ export const useCompany = () => {
 
 // Generate unique employee ID for a company
 const generateEmployeeId = async (companyId) => {
-  const companyRef = doc(db, 'companies', companyId);
-  const companySnap = await getDoc(companyRef);
+  try {
+    const companyRef = doc(db, 'companies', companyId);
+    const companySnap = await getDoc(companyRef);
 
-  let nextNumber = 1;
-  if (companySnap.exists()) {
-    const data = companySnap.data();
-    nextNumber = (data.lastEmployeeNumber || 0) + 1;
+    let nextNumber = 1;
+    if (companySnap.exists()) {
+      const data = companySnap.data();
+      nextNumber = (data.lastEmployeeNumber || 0) + 1;
+    }
+
+    // Update the company's last employee number
+    await updateDoc(companyRef, {
+      lastEmployeeNumber: nextNumber
+    });
+
+    // Format the employee ID (e.g., EMP-0001)
+    const { prefix, digits } = employeeIdConfig;
+    const paddedNumber = String(nextNumber).padStart(digits, '0');
+    return `${prefix}-${paddedNumber}`;
+  } catch (error) {
+    console.error('Error generating employee ID:', error);
+    throw new Error(`Failed to generate employee ID: ${error.message}`);
   }
-
-  // Update the company's last employee number
-  await updateDoc(companyRef, {
-    lastEmployeeNumber: nextNumber
-  });
-
-  // Format the employee ID (e.g., EMP-0001)
-  const { prefix, digits } = employeeIdConfig;
-  const paddedNumber = String(nextNumber).padStart(digits, '0');
-  return `${prefix}-${paddedNumber}`;
 };
 
 export const CompanyProvider = ({ children }) => {
@@ -184,48 +189,60 @@ export const CompanyProvider = ({ children }) => {
 
       // Update user profile with companyId and create owner as first employee
       if (currentUser?.uid) {
-        const userRef = doc(db, 'users', currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        const userData = userSnap.data() || {};
+        try {
+          const userRef = doc(db, 'users', currentUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          if (!userSnap.exists()) {
+            throw new Error('Unable to load user profile. Please try refreshing the page or contact support.');
+          }
+          
+          const userData = userSnap.data() || {};
 
-        // Generate employee ID for owner if not already set
-        let employeeId = userData.employeeId;
-        if (!employeeId && isNewCompany) {
-          employeeId = await generateEmployeeId(id);
+          // Generate employee ID for owner if not already set
+          let employeeId = userData.employeeId;
+          if (!employeeId && isNewCompany) {
+            employeeId = await generateEmployeeId(id);
 
-          // Create owner as employee in company
-          const ownerEmployeeRef = doc(db, 'companies', id, 'employees', employeeId);
-          await setDoc(ownerEmployeeRef, {
-            userId: currentUser.uid,
-            employeeId: employeeId,
-            name: currentUser.displayName || userData.displayName || 'Admin',
-            email: currentUser.email,
-            role: 'admin',
-            department: 'Management',
-            position: 'Administrator',
-            status: 'active',
-            hireDate: new Date().toISOString().split('T')[0],
-            completedTrainings: 0,
-            totalTrainings: 0,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
+            // Create owner as employee in company
+            const ownerEmployeeRef = doc(db, 'companies', id, 'employees', employeeId);
+            await setDoc(ownerEmployeeRef, {
+              userId: currentUser.uid,
+              employeeId: employeeId,
+              name: currentUser.displayName || userData.displayName || 'Admin',
+              email: currentUser.email,
+              role: 'admin',
+              department: 'Management',
+              position: 'Administrator',
+              status: 'active',
+              hireDate: new Date().toISOString().split('T')[0],
+              completedTrainings: 0,
+              totalTrainings: 0,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            });
+          }
+
+          // Update user profile with merge option to preserve other fields
+          await updateDoc(userRef, {
+            companyId: id,
+            employeeId: employeeId || userData.employeeId,
+            role: userData.role || 'admin',
+            updated_at: serverTimestamp()
           });
+
+          console.log('👤 User assigned to company:', id, 'Employee ID:', employeeId || userData.employeeId);
+        } catch (userError) {
+          console.error('Error updating user profile:', userError);
+          // Still return company ID even if user update fails, but log the error
+          setError(`Company saved but failed to update user profile: ${userError.message}`);
         }
-
-        // Update user profile
-        await updateDoc(userRef, {
-          companyId: id,
-          employeeId: employeeId || userData.employeeId,
-          role: userData.role || 'admin',
-          updated_at: serverTimestamp()
-        });
-
-        console.log('👤 User assigned to company:', id, 'Employee ID:', employeeId || userData.employeeId);
       }
 
       return id;
     } catch (err) {
-      setError(err.message);
+      console.error('Error saving company:', err);
+      setError(`Failed to save company: ${err.message}`);
       throw err;
     }
   }, [companyId, currentUser]);
@@ -235,6 +252,11 @@ export const CompanyProvider = ({ children }) => {
     try {
       setError(null);
       if (!companyId) throw new Error('No company ID');
+      
+      // Validate required fields
+      if (!employeeData.name || !employeeData.email) {
+        throw new Error('Employee name and email are required');
+      }
 
       // Generate unique employee ID
       const employeeId = await generateEmployeeId(companyId);
@@ -259,7 +281,8 @@ export const CompanyProvider = ({ children }) => {
       console.log('👤 New employee created with ID:', employeeId);
       return employeeId;
     } catch (err) {
-      setError(err.message);
+      console.error('Error adding employee:', err);
+      setError(`Failed to add employee: ${err.message}`);
       throw err;
     }
   }, [companyId]);
@@ -269,6 +292,7 @@ export const CompanyProvider = ({ children }) => {
     try {
       setError(null);
       if (!companyId) throw new Error('No company ID');
+      if (!employeeId) throw new Error('No employee ID provided');
 
       const employeeRef = doc(db, 'companies', companyId, 'employees', employeeId);
       await updateDoc(employeeRef, {
@@ -276,7 +300,8 @@ export const CompanyProvider = ({ children }) => {
         updated_at: serverTimestamp()
       });
     } catch (err) {
-      setError(err.message);
+      console.error('Error updating employee:', err);
+      setError(`Failed to update employee: ${err.message}`);
       throw err;
     }
   }, [companyId]);
@@ -286,6 +311,7 @@ export const CompanyProvider = ({ children }) => {
     try {
       setError(null);
       if (!companyId) throw new Error('No company ID');
+      if (!trainingData.title) throw new Error('Training title is required');
 
       const trainingsRef = collection(db, 'companies', companyId, 'trainings');
       const newTrainingRef = doc(trainingsRef);
@@ -299,7 +325,8 @@ export const CompanyProvider = ({ children }) => {
 
       return newTrainingRef.id;
     } catch (err) {
-      setError(err.message);
+      console.error('Error saving training:', err);
+      setError(`Failed to save training: ${err.message}`);
       throw err;
     }
   }, [companyId, currentUser]);
@@ -309,6 +336,8 @@ export const CompanyProvider = ({ children }) => {
     try {
       setError(null);
       if (!companyId) throw new Error('No company ID');
+      if (!resultData.employeeId) throw new Error('Employee ID is required');
+      if (!resultData.trainingId) throw new Error('Training ID is required');
 
       const resultsRef = collection(db, 'companies', companyId, 'quizResults');
       const newResultRef = doc(resultsRef);
@@ -338,12 +367,17 @@ export const CompanyProvider = ({ children }) => {
             ],
             updated_at: serverTimestamp()
           });
+        } else {
+          const warningMsg = `Employee ${resultData.employeeId} not found. Quiz result saved but employee record was not updated.`;
+          console.warn(warningMsg);
+          setError(warningMsg);
         }
       }
 
       return newResultRef.id;
     } catch (err) {
-      setError(err.message);
+      console.error('Error saving quiz result:', err);
+      setError(`Failed to save quiz result: ${err.message}`);
       throw err;
     }
   }, [companyId]);

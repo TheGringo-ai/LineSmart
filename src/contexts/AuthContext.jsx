@@ -31,30 +31,35 @@ export const AuthProvider = ({ children }) => {
   const createUserDocument = async (user, additionalData = {}) => {
     if (!user) return null;
 
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
+    try {
+      const userRef = doc(db, 'users', user.uid);
+      const userSnap = await getDoc(userRef);
 
-    if (!userSnap.exists()) {
-      const { email, displayName, photoURL } = user;
-      const userData = {
-        email,
-        displayName: displayName || additionalData.displayName || '',
-        photoURL: photoURL || '',
-        role: additionalData.role || 'admin',
-        companyId: additionalData.companyId || null,
-        employeeId: additionalData.employeeId || null,
-        department: additionalData.department || null,
-        created_at: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-        ...additionalData
-      };
+      if (!userSnap.exists()) {
+        const { email, displayName, photoURL } = user;
+        const userData = {
+          email,
+          displayName: displayName || additionalData.displayName || '',
+          photoURL: photoURL || '',
+          role: additionalData.role || 'admin',
+          companyId: additionalData.companyId || null,
+          employeeId: additionalData.employeeId || null,
+          department: additionalData.department || null,
+          created_at: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          ...additionalData
+        };
 
-      await setDoc(userRef, userData);
-      return userData;
-    } else {
-      // Update last login
-      await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
-      return userSnap.data();
+        await setDoc(userRef, userData);
+        return userData;
+      } else {
+        // Update last login
+        await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
+        return userSnap.data();
+      }
+    } catch (error) {
+      console.error('Error creating/updating user document:', error);
+      throw new Error(`Failed to save user data: ${error.message}`);
     }
   };
 
@@ -69,6 +74,7 @@ export const AuthProvider = ({ children }) => {
       return null;
     } catch (err) {
       console.error('Error getting user profile:', err);
+      setError(`Failed to load user profile: ${err.message}`);
       return null;
     }
   };
@@ -175,12 +181,18 @@ export const AuthProvider = ({ children }) => {
 
   // Refresh user profile (to get updated companyId, etc.)
   const refreshUserProfile = async () => {
-    if (currentUser) {
-      const profile = await getUserProfile(currentUser.uid);
-      setUserProfile(profile);
-      return profile;
+    try {
+      if (currentUser) {
+        const profile = await getUserProfile(currentUser.uid);
+        setUserProfile(profile);
+        return profile;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error refreshing user profile:', err);
+      setError(`Failed to refresh profile: ${err.message}`);
+      return null;
     }
-    return null;
   };
 
   // Listen for auth state changes

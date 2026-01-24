@@ -531,23 +531,28 @@ export const SetupWizard = ({
           <div className="flex justify-center space-x-4">
             <button
               onClick={async () => {
-                if (onComplete) {
-                  await onComplete({
-                    companyName: setupConfig.company.name,
-                    industry: setupConfig.company.industry,
-                    companySize: setupConfig.company.size,
-                    departments: setupConfig.company.departments,
-                    safetyRequirements: setupConfig.company.safetyRequirements,
-                    defaultLanguage: setupConfig.company.defaultLanguage,
-                    supportedLanguages: setupConfig.company.supportedLanguages,
-                    primaryModel: setupConfig.aiModels.primary,
-                    secondaryModel: setupConfig.aiModels.secondary,
-                    modelConfigs: setupConfig.aiModels.configs,
-                    dataSourceType: setupConfig.dataSource.type,
-                    ragSettings: setupConfig.dataSource.trainingDataSettings,
-                    defaultTrainings: setupConfig.onboarding.defaultTrainings,
-                    probationPeriod: setupConfig.onboarding.probationPeriod
-                  });
+                try {
+                  if (onComplete) {
+                    await onComplete({
+                      companyName: setupConfig.company.name,
+                      industry: setupConfig.company.industry,
+                      companySize: setupConfig.company.size,
+                      departments: setupConfig.company.departments,
+                      safetyRequirements: setupConfig.company.safetyRequirements,
+                      defaultLanguage: setupConfig.company.defaultLanguage,
+                      supportedLanguages: setupConfig.company.supportedLanguages,
+                      primaryModel: setupConfig.aiModels.primary,
+                      secondaryModel: setupConfig.aiModels.secondary,
+                      modelConfigs: setupConfig.aiModels.configs,
+                      dataSourceType: setupConfig.dataSource.type,
+                      ragSettings: setupConfig.dataSource.trainingDataSettings,
+                      defaultTrainings: setupConfig.onboarding.defaultTrainings,
+                      probationPeriod: setupConfig.onboarding.probationPeriod
+                    });
+                  }
+                } catch (error) {
+                  console.error('Error completing setup:', error);
+                  alert(`Failed to complete setup: ${error.message}`);
                 }
               }}
               className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
@@ -557,25 +562,30 @@ export const SetupWizard = ({
             </button>
             <button
               onClick={async () => {
-                if (onComplete) {
-                  await onComplete({
-                    companyName: setupConfig.company.name,
-                    industry: setupConfig.company.industry,
-                    companySize: setupConfig.company.size,
-                    departments: setupConfig.company.departments,
-                    safetyRequirements: setupConfig.company.safetyRequirements,
-                    defaultLanguage: setupConfig.company.defaultLanguage,
-                    supportedLanguages: setupConfig.company.supportedLanguages,
-                    primaryModel: setupConfig.aiModels.primary,
-                    secondaryModel: setupConfig.aiModels.secondary,
-                    modelConfigs: setupConfig.aiModels.configs,
-                    dataSourceType: setupConfig.dataSource.type,
-                    ragSettings: setupConfig.dataSource.trainingDataSettings,
-                    defaultTrainings: setupConfig.onboarding.defaultTrainings,
-                    probationPeriod: setupConfig.onboarding.probationPeriod
-                  });
+                try {
+                  if (onComplete) {
+                    await onComplete({
+                      companyName: setupConfig.company.name,
+                      industry: setupConfig.company.industry,
+                      companySize: setupConfig.company.size,
+                      departments: setupConfig.company.departments,
+                      safetyRequirements: setupConfig.company.safetyRequirements,
+                      defaultLanguage: setupConfig.company.defaultLanguage,
+                      supportedLanguages: setupConfig.company.supportedLanguages,
+                      primaryModel: setupConfig.aiModels.primary,
+                      secondaryModel: setupConfig.aiModels.secondary,
+                      modelConfigs: setupConfig.aiModels.configs,
+                      dataSourceType: setupConfig.dataSource.type,
+                      ragSettings: setupConfig.dataSource.trainingDataSettings,
+                      defaultTrainings: setupConfig.onboarding.defaultTrainings,
+                      probationPeriod: setupConfig.onboarding.probationPeriod
+                    });
+                  }
+                  setCurrentView('create');
+                } catch (error) {
+                  console.error('Error completing setup:', error);
+                  alert(`Failed to complete setup: ${error.message}`);
                 }
-                setCurrentView('create');
               }}
               className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
             >
