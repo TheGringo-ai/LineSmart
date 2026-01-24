@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users collection - users can read/write their own document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+    }
+
+    // Companies collection
+    match /companies/{companyId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // Training modules - authenticated users can read
+    match /training_modules/{moduleId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Assessments
+    match /assessments/{assessmentId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // User progress
+    match /user_progress/{progressId} {
+      allow read, write: if request.auth != null;
+    }
+
+    // General authenticated access for other collections
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

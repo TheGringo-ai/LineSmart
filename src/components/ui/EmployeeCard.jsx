@@ -65,7 +65,7 @@ export const EmployeeCard = ({
 
       <div className="space-y-2">
         <h4 className="text-sm font-medium text-gray-700">Recommended Trainings:</h4>
-        {employee.recommendedTrainings.slice(0, 2).map((rec, index) => (
+        {(employee.recommendedTrainings || []).slice(0, 2).map((rec, index) => (
           <div key={index} className="text-xs bg-gray-50 p-2 rounded">
             <div className="flex justify-between items-center">
               <span className="font-medium">{rec.title}</span>

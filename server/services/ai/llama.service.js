@@ -1,13 +1,74 @@
 import axios from 'axios';
 import logger from '../../config/logger.js';
+import monitoringService from '../monitoring.service.js';
 
 class LlamaService {
   constructor() {
-    this.replicateApiKey = process.env.REPLICATE_API_KEY;
-    this.ollamaBaseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
-    this.model = process.env.LLAMA_MODEL || 'meta/llama-2-70b-chat';
-    this.useOllama = !this.replicateApiKey; // Use Ollama if no Replicate key
+    // Lazy-load config to handle ES module import ordering
+    this._replicateApiKey = null;
+    this._ollamaBaseURL = null;
+    this._model = null;
+    this._useOllama = null;
+    this._ollamaAvailable = null;
     this.maxTokens = 4096;
+  }
+
+  // Lazy getters to ensure env vars are loaded
+  get replicateApiKey() {
+    if (this._replicateApiKey === null) {
+      this._replicateApiKey = process.env.REPLICATE_API_KEY || '';
+    }
+    return this._replicateApiKey;
+  }
+
+  get ollamaBaseURL() {
+    if (!this._ollamaBaseURL) {
+      this._ollamaBaseURL = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+    }
+    return this._ollamaBaseURL;
+  }
+
+  get model() {
+    if (!this._model) {
+      this._model = process.env.LLAMA_MODEL || 'meta/llama-2-70b-chat';
+    }
+    return this._model;
+  }
+
+  get useOllama() {
+    if (this._useOllama === null) {
+      this._useOllama = !this.replicateApiKey;
+    }
+    return this._useOllama;
+  }
+
+  /**
+   * Check if Ollama is available (cached check)
+   */
+  async isOllamaAvailable() {
+    if (this._ollamaAvailable !== null) {
+      return this._ollamaAvailable;
+    }
+
+    try {
+      await axios.get(`${this.ollamaBaseURL}/api/tags`, { timeout: 3000 });
+      this._ollamaAvailable = true;
+      logger.info('Ollama service is available');
+    } catch (error) {
+      this._ollamaAvailable = false;
+      logger.warn('Ollama service not available - Llama provider will be unavailable in cloud', {
+        error: error.message
+      });
+    }
+
+    return this._ollamaAvailable;
+  }
+
+  /**
+   * Reset availability cache (for retry logic)
+   */
+  resetAvailabilityCache() {
+    this._ollamaAvailable = null;
   }
 
   /**
@@ -17,7 +78,23 @@ class LlamaService {
    * @param {object} options - Additional options
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
+    const requestContext = monitoringService.startRequest('llama');
+
     try {
+      // Check availability first
+      if (this.useOllama) {
+        const ollamaAvailable = await this.isOllamaAvailable();
+        if (!ollamaAvailable) {
+          const error = new Error('Llama unavailable: Ollama not running. This is expected in cloud deployments.');
+          monitoringService.recordError(requestContext, error);
+          throw error;
+        }
+      } else if (!this.replicateApiKey) {
+        const error = new Error('Llama unavailable: No Replicate API key configured');
+        monitoringService.recordError(requestContext, error);
+        throw error;
+      }
+
       const systemMessage = this.buildSystemMessage(context);
       const userMessage = this.buildUserMessage(prompt, context);
 
@@ -35,6 +112,8 @@ class LlamaService {
         response = await this.generateWithReplicate(systemMessage, userMessage, options);
       }
 
+      monitoringService.recordSuccess(requestContext);
+
       logger.info('Llama response received', {
         provider: this.useOllama ? 'Ollama' : 'Replicate',
         contentLength: response.content.length
@@ -42,6 +121,7 @@ class LlamaService {
 
       return response;
     } catch (error) {
+      monitoringService.recordError(requestContext, error);
       logger.error('Llama API error', {
         error: error.message,
         provider: this.useOllama ? 'Ollama' : 'Replicate'
@@ -320,26 +400,56 @@ Remember: You are Llama - be efficient, accessible, privacy-conscious, and commi
   }
 
   /**
-   * Health check
+   * Health check - gracefully handles Ollama not being available in cloud
    */
   async healthCheck() {
     try {
       if (this.useOllama) {
-        const response = await axios.get(`${this.ollamaBaseURL}/api/tags`);
+        const ollamaAvailable = await this.isOllamaAvailable();
+
+        if (!ollamaAvailable) {
+          // This is expected in cloud deployments - mark as unavailable, not unhealthy
+          monitoringService.updateProviderStatus('llama', 'unavailable', {
+            error: 'Ollama not running (expected in cloud)'
+          });
+          return {
+            status: 'unavailable',
+            provider: 'Ollama',
+            message: 'Ollama not running - this is expected in cloud deployments. Use Replicate API key for cloud Llama support.',
+            configured: false
+          };
+        }
+
+        const response = await axios.get(`${this.ollamaBaseURL}/api/tags`, { timeout: 5000 });
+        monitoringService.updateProviderStatus('llama', 'healthy');
         return {
           status: 'healthy',
           provider: 'Ollama',
           models: response.data.models?.length || 0
         };
       } else {
-        // Simple check for Replicate
+        // Replicate mode
+        if (!this.replicateApiKey) {
+          monitoringService.updateProviderStatus('llama', 'unavailable', {
+            error: 'Replicate API key not configured'
+          });
+          return {
+            status: 'unavailable',
+            provider: 'Replicate',
+            message: 'Replicate API key not configured',
+            configured: false
+          };
+        }
+
+        monitoringService.updateProviderStatus('llama', 'healthy');
         return {
           status: 'healthy',
           provider: 'Replicate',
-          apiKeyConfigured: !!this.replicateApiKey
+          apiKeyConfigured: true
         };
       }
     } catch (error) {
+      monitoringService.updateProviderStatus('llama', 'unhealthy', { error: error.message });
       return {
         status: 'unhealthy',
         provider: this.useOllama ? 'Ollama' : 'Replicate',

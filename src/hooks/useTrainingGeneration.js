@@ -469,7 +469,8 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
     }
 
     // Then try user-configured API keys
-    const enabledModels = Object.entries(setupConfig?.aiModels?.configs || {}).filter(([key, config]) =>
+    const configs = setupConfig?.aiModels?.configs || setupConfig?.aiModels?.modelConfigs || {};
+    const enabledModels = Object.entries(configs).filter(([key, config]) =>
       config?.apiKey && key !== 'llama'
     );
 
@@ -638,10 +639,12 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
   }, []);
 
   const getEnabledModels = useCallback(() => {
-    return Object.entries(setupConfig.aiModels.configs).filter(([key, config]) =>
-      config.apiKey && key !== 'llama'
+    // Handle both 'configs' and 'modelConfigs' field names (Firestore uses modelConfigs)
+    const configs = setupConfig?.aiModels?.configs || setupConfig?.aiModels?.modelConfigs || {};
+    return Object.entries(configs).filter(([key, config]) =>
+      config?.apiKey && key !== 'llama'
     );
-  }, [setupConfig.aiModels.configs]);
+  }, [setupConfig?.aiModels]);
 
   return {
     trainingData,

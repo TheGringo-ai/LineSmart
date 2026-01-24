@@ -27,49 +27,84 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Create user document in Firestore
+  // Create user document in Firestore with timeout
   const createUserDocument = async (user, additionalData = {}) => {
     if (!user) return null;
 
-    const userRef = doc(db, 'users', user.uid);
-    const userSnap = await getDoc(userRef);
+    // Add timeout to prevent hanging forever
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore timeout')), 10000)
+    );
 
-    if (!userSnap.exists()) {
-      const { email, displayName, photoURL } = user;
-      const userData = {
-        email,
-        displayName: displayName || additionalData.displayName || '',
-        photoURL: photoURL || '',
-        role: additionalData.role || 'admin',
-        companyId: additionalData.companyId || null,
-        employeeId: additionalData.employeeId || null,
-        department: additionalData.department || null,
-        created_at: serverTimestamp(),
-        lastLogin: serverTimestamp(),
-        ...additionalData
+    try {
+      const userRef = doc(db, 'users', user.uid);
+
+      // Race between Firestore operation and timeout
+      const userSnap = await Promise.race([
+        getDoc(userRef),
+        timeoutPromise
+      ]);
+
+      if (!userSnap.exists()) {
+        const { email, displayName, photoURL } = user;
+        const userData = {
+          email,
+          displayName: displayName || additionalData.displayName || '',
+          photoURL: photoURL || '',
+          role: additionalData.role || 'admin',
+          companyId: additionalData.companyId || null,
+          employeeId: additionalData.employeeId || null,
+          department: additionalData.department || null,
+          created_at: serverTimestamp(),
+          lastLogin: serverTimestamp(),
+          ...additionalData
+        };
+
+        await Promise.race([
+          setDoc(userRef, userData),
+          timeoutPromise
+        ]);
+        return userData;
+      } else {
+        // Update last login
+        await Promise.race([
+          setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true }),
+          timeoutPromise
+        ]);
+        return userSnap.data();
+      }
+    } catch (err) {
+      console.error('createUserDocument error:', err);
+      // Return basic user data even if Firestore fails
+      return {
+        email: user.email,
+        displayName: user.displayName || '',
+        photoURL: user.photoURL || '',
+        role: 'admin'
       };
-
-      await setDoc(userRef, userData);
-      return userData;
-    } else {
-      // Update last login
-      await setDoc(userRef, { lastLogin: serverTimestamp() }, { merge: true });
-      return userSnap.data();
     }
   };
 
-  // Get user profile from Firestore
+  // Get user profile from Firestore with timeout
   const getUserProfile = async (uid) => {
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore timeout')), 10000)
+    );
+
     try {
       const userRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userRef);
+      const userSnap = await Promise.race([
+        getDoc(userRef),
+        timeoutPromise
+      ]);
       if (userSnap.exists()) {
         return { id: userSnap.id, ...userSnap.data() };
       }
       return null;
     } catch (err) {
       console.error('Error getting user profile:', err);
-      return null;
+      // Return basic profile on timeout/error
+      return { id: uid, role: 'admin' };
     }
   };
 
@@ -186,14 +221,32 @@ export const AuthProvider = ({ children }) => {
   // Listen for auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      console.log('🔐 AuthContext: Auth state changed, user:', user?.uid || 'NONE');
       setCurrentUser(user);
-      if (user) {
-        const profile = await getUserProfile(user.uid);
-        setUserProfile(profile);
-      } else {
-        setUserProfile(null);
+
+      try {
+        if (user) {
+          const profile = await getUserProfile(user.uid);
+          console.log('🔐 AuthContext: User profile loaded:', {
+            id: profile?.id,
+            companyId: profile?.companyId,
+            email: profile?.email,
+            role: profile?.role
+          });
+          setUserProfile(profile);
+        } else {
+          setUserProfile(null);
+        }
+      } catch (err) {
+        console.error('🔐 AuthContext: Error loading profile:', err);
+        // Set basic profile on error
+        if (user) {
+          setUserProfile({ id: user.uid, email: user.email, role: 'admin' });
+        }
+      } finally {
+        // ALWAYS set loading to false
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;

@@ -90,22 +90,29 @@ export const CompanyProvider = ({ children }) => {
 
   // Fetch company data
   useEffect(() => {
+    console.log('🏢 CompanyContext: companyId from userProfile:', companyId);
+
     if (!companyId) {
+      console.log('🏢 CompanyContext: No companyId, setting loading=false');
       setLoading(false);
       return;
     }
 
+    console.log('🏢 CompanyContext: Fetching company document:', companyId);
     const companyRef = doc(db, 'companies', companyId);
 
-    const unsubscribe = onSnapshot(companyRef, (doc) => {
-      if (doc.exists()) {
-        setCompany({ id: doc.id, ...doc.data() });
+    const unsubscribe = onSnapshot(companyRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const companyData = { id: docSnap.id, ...docSnap.data() };
+        console.log('🏢 CompanyContext: Company loaded:', companyData.name);
+        setCompany(companyData);
       } else {
+        console.log('🏢 CompanyContext: Company document does not exist for ID:', companyId);
         setCompany(null);
       }
       setLoading(false);
     }, (err) => {
-      console.error('Error fetching company:', err);
+      console.error('🏢 CompanyContext: Error fetching company:', err);
       setError(err.message);
       setLoading(false);
     });

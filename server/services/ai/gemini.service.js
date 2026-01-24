@@ -1,12 +1,31 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import logger from '../../config/logger.js';
+import monitoringService from '../monitoring.service.js';
 
 class GeminiService {
   constructor() {
-    this.apiKey = process.env.GOOGLE_API_KEY;
-    this.genAI = new GoogleGenerativeAI(this.apiKey);
-    this.modelName = process.env.GOOGLE_MODEL || 'gemini-pro';
+    // Lazy-load API key to handle ES module import ordering
+    this._apiKey = null;
+    this._genAI = null;
     this.maxTokens = 4096;
+  }
+
+  get apiKey() {
+    if (!this._apiKey) {
+      this._apiKey = process.env.GOOGLE_API_KEY;
+    }
+    return this._apiKey;
+  }
+
+  get genAI() {
+    if (!this._genAI && this.apiKey) {
+      this._genAI = new GoogleGenerativeAI(this.apiKey);
+    }
+    return this._genAI;
+  }
+
+  getModelName() {
+    return process.env.GOOGLE_MODEL || 'gemini-2.0-flash';
   }
 
   /**
@@ -16,19 +35,21 @@ class GeminiService {
    * @param {object} options - Additional options
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
+    const requestContext = monitoringService.startRequest('gemini');
+
     try {
       const systemMessage = this.buildSystemMessage(context);
       const userMessage = this.buildUserMessage(prompt, context);
       const fullPrompt = `${systemMessage}\n\n${userMessage}`;
 
       logger.info('Gemini request', {
-        model: this.modelName,
+        model: this.getModelName(),
         promptLength: prompt.length,
         hasContext: !!context.documents
       });
 
       const model = this.genAI.getGenerativeModel({
-        model: options.model || this.modelName,
+        model: options.model || this.getModelName(),
       });
 
       const generationConfig = {
@@ -48,7 +69,7 @@ class GeminiService {
 
       const apiResponse = {
         content: text,
-        model: this.modelName,
+        model: this.getModelName(),
         usage: {
           promptTokens: response.usageMetadata?.promptTokenCount || 0,
           completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
@@ -57,6 +78,8 @@ class GeminiService {
         finishReason: response.candidates?.[0]?.finishReason || 'stop',
       };
 
+      monitoringService.recordSuccess(requestContext);
+
       logger.info('Gemini response received', {
         usage: apiResponse.usage,
         finishReason: apiResponse.finishReason
@@ -64,6 +87,8 @@ class GeminiService {
 
       return apiResponse;
     } catch (error) {
+      monitoringService.recordError(requestContext, error);
+
       logger.error('Gemini API error', {
         error: error.message,
         status: error.status
@@ -88,7 +113,7 @@ ${content}
 Respond with only the JSON array, no additional text or markdown formatting.`;
 
       const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
+        model: this.getModelName(),
       });
 
       const result = await model.generateContent({
@@ -145,7 +170,7 @@ Content to translate:
 ${content}`;
 
       const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
+        model: this.getModelName(),
       });
 
       const result = await model.generateContent({
@@ -184,7 +209,7 @@ Provide analysis on:
 Format the response with clear sections and bullet points.`;
 
       const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
+        model: this.getModelName(),
       });
 
       const result = await model.generateContent({
@@ -216,8 +241,9 @@ Format the response with clear sections and bullet points.`;
    */
   async generateWithImage(prompt, imageData) {
     try {
+      // Use gemini-2.0-flash which supports vision natively
       const model = this.genAI.getGenerativeModel({
-        model: 'gemini-pro-vision',
+        model: 'gemini-2.0-flash',
       });
 
       const imageParts = [{
@@ -306,8 +332,13 @@ Remember: You are Gemini - be globally minded, culturally intelligent, linguisti
    */
   async healthCheck() {
     try {
+      if (!this.apiKey) {
+        monitoringService.updateProviderStatus('gemini', 'unavailable', { error: 'API key not configured' });
+        return { status: 'unavailable', error: 'API key not configured' };
+      }
+
       const model = this.genAI.getGenerativeModel({
-        model: this.modelName,
+        model: this.getModelName(),
       });
 
       const result = await model.generateContent({
@@ -318,11 +349,13 @@ Remember: You are Gemini - be globally minded, culturally intelligent, linguisti
       });
 
       await result.response;
+      monitoringService.updateProviderStatus('gemini', 'healthy');
       return {
         status: 'healthy',
-        model: this.modelName
+        model: this.getModelName()
       };
     } catch (error) {
+      monitoringService.updateProviderStatus('gemini', 'unhealthy', { error: error.message });
       return {
         status: 'unhealthy',
         error: error.message

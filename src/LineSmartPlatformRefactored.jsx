@@ -74,6 +74,15 @@ const LineSmartPlatform = () => {
 
   // Determine initial view based on company data - runs once after loading
   useEffect(() => {
+    console.log('🔍 View determination check:', {
+      companyLoading,
+      initialLoadDone,
+      hasCompany: !!company,
+      companyName: company?.name,
+      userProfileCompanyId: userProfile?.companyId,
+      authUserUid: authUser?.uid
+    });
+
     if (!companyLoading && !initialLoadDone) {
       setInitialLoadDone(true);
       if (company && company.name) {
@@ -85,13 +94,21 @@ const LineSmartPlatform = () => {
         // No company - show setup
         setCurrentView('setup');
         console.log('🔧 No company found - showing setup');
+        console.log('   userProfile.companyId:', userProfile?.companyId);
+        console.log('   company object:', company);
       }
     }
-  }, [companyLoading, company, initialLoadDone]);
+  }, [companyLoading, company, initialLoadDone, userProfile, authUser]);
 
   // Sync company config with setup wizard when company data changes
   useEffect(() => {
     if (company) {
+      // Map company.aiModels.modelConfigs to configs (Firestore uses modelConfigs, code expects configs)
+      const aiModelsWithConfigs = company.aiModels ? {
+        ...company.aiModels,
+        configs: company.aiModels.modelConfigs || company.aiModels.configs || {}
+      } : null;
+
       setupWizard.setSetupConfig(prev => ({
         ...prev,
         companyName: company.name || prev.companyName,
@@ -105,7 +122,7 @@ const LineSmartPlatform = () => {
         primaryModel: company.aiModels?.primary || prev.primaryModel,
         secondaryModel: company.aiModels?.secondary || prev.secondaryModel,
         dataSourceType: company.dataSource?.type || prev.dataSourceType,
-        aiModels: company.aiModels || prev.aiModels
+        aiModels: aiModelsWithConfigs || prev.aiModels
       }));
       setupWizard.setCompletedSetup(true);
     }
@@ -139,8 +156,10 @@ const LineSmartPlatform = () => {
 
   // Handle setup completion - save to Firestore
   const handleSetupComplete = async (config) => {
+    console.log('🚀 handleSetupComplete called with:', config);
     try {
-      await saveCompany({
+      console.log('💾 Saving company to Firestore...');
+      const companyId = await saveCompany({
         name: config.companyName,
         industry: config.industry,
         size: config.companySize,
@@ -162,12 +181,19 @@ const LineSmartPlatform = () => {
           probationPeriod: config.probationPeriod
         }
       });
+      console.log('✅ Company saved with ID:', companyId);
+
       // Refresh user profile to get the updated companyId
-      await refreshUserProfile();
+      console.log('🔄 Refreshing user profile...');
+      const updatedProfile = await refreshUserProfile();
+      console.log('✅ User profile refreshed:', updatedProfile?.companyId);
+
       setupWizard.setCompletedSetup(true);
       setCurrentView('dashboard');
+      console.log('✅ Setup complete, going to dashboard');
     } catch (error) {
-      console.error('Error saving company:', error);
+      console.error('❌ Error saving company:', error);
+      alert(`Error saving company: ${error.message}`);
     }
   };
 

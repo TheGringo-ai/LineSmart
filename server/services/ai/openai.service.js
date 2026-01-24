@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import logger from '../../config/logger.js';
+import monitoringService from '../monitoring.service.js';
 
 class OpenAIService {
   constructor() {
@@ -42,6 +43,8 @@ class OpenAIService {
    * @param {object} options - Additional options
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
+    const requestContext = monitoringService.startRequest('openai');
+
     try {
       this.ensureClient();
       const systemMessage = this.buildSystemMessage(context);
@@ -77,6 +80,8 @@ class OpenAIService {
         finishReason: completion.choices[0].finish_reason,
       };
 
+      monitoringService.recordSuccess(requestContext);
+
       logger.info('OpenAI response received', {
         usage: response.usage,
         finishReason: response.finishReason
@@ -84,6 +89,8 @@ class OpenAIService {
 
       return response;
     } catch (error) {
+      monitoringService.recordError(requestContext, error);
+
       logger.error('OpenAI API error', {
         error: error.message,
         code: error.code,
@@ -445,12 +452,15 @@ Create this SOP with exceptional detail, perfect clarity, and zero ambiguity.`;
    */
   async healthCheck() {
     if (!this.client) {
-      return { status: 'unconfigured', error: 'API key not set' };
+      monitoringService.updateProviderStatus('openai', 'unavailable', { error: 'API key not set' });
+      return { status: 'unavailable', error: 'API key not set' };
     }
     try {
       const response = await this.client.models.list();
+      monitoringService.updateProviderStatus('openai', 'healthy');
       return { status: 'healthy', models: response.data.length };
     } catch (error) {
+      monitoringService.updateProviderStatus('openai', 'unhealthy', { error: error.message });
       return { status: 'unhealthy', error: error.message };
     }
   }

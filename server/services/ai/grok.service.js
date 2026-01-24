@@ -1,23 +1,36 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
 import logger from '../../config/logger.js';
+import monitoringService from '../monitoring.service.js';
 
 class GrokService {
   constructor() {
-    // Ensure environment variables are loaded
-    dotenv.config();
-    
-    this.apiKey = process.env.XAI_API_KEY;
-    this.baseURL = process.env.XAI_BASE_URL || 'https://api.x.ai/v1';
-    this.model = process.env.XAI_MODEL || 'grok-4-latest';
+    // Lazy-load config to handle ES module import ordering
+    this._apiKey = null;
+    this._baseURL = null;
+    this._model = null;
     this.maxTokens = 4096;
-    
-    logger.info('Grok service initialized', {
-      hasApiKey: !!this.apiKey,
-      apiKeyLength: this.apiKey?.length,
-      model: this.model,
-      baseURL: this.baseURL
-    });
+  }
+
+  // Lazy getters to ensure env vars are loaded
+  get apiKey() {
+    if (!this._apiKey) {
+      this._apiKey = process.env.XAI_API_KEY;
+    }
+    return this._apiKey;
+  }
+
+  get baseURL() {
+    if (!this._baseURL) {
+      this._baseURL = process.env.XAI_BASE_URL || 'https://api.x.ai/v1';
+    }
+    return this._baseURL;
+  }
+
+  get model() {
+    if (!this._model) {
+      this._model = process.env.XAI_MODEL || 'grok-3';
+    }
+    return this._model;
   }
 
   /**
@@ -27,6 +40,8 @@ class GrokService {
    * @param {object} options - Additional options
    */
   async generateTrainingContent(prompt, context = {}, options = {}) {
+    const requestContext = monitoringService.startRequest('grok');
+
     try {
       const systemMessage = this.buildSystemMessage(context);
       const userMessage = this.buildUserMessage(prompt, context);
@@ -55,6 +70,7 @@ class GrokService {
             'Authorization': `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
           },
+          timeout: 30000,
         }
       );
 
@@ -69,6 +85,8 @@ class GrokService {
         finishReason: response.data.choices[0].finish_reason,
       };
 
+      monitoringService.recordSuccess(requestContext);
+
       logger.info('Grok response received', {
         usage: result.usage,
         finishReason: result.finishReason
@@ -76,6 +94,8 @@ class GrokService {
 
       return result;
     } catch (error) {
+      monitoringService.recordError(requestContext, error);
+
       logger.error('Grok API error', {
         error: error.message,
         status: error.response?.status,
@@ -299,13 +319,22 @@ Remember: You're Grok - be helpful, be brilliant, be practical, but above all, b
    */
   async healthCheck() {
     try {
+      if (!this.apiKey) {
+        monitoringService.updateProviderStatus('grok', 'unavailable', { error: 'API key not configured' });
+        return { status: 'unavailable', error: 'API key not configured' };
+      }
+
       const response = await axios.get(`${this.baseURL}/models`, {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
         },
+        timeout: 10000,
       });
+
+      monitoringService.updateProviderStatus('grok', 'healthy');
       return { status: 'healthy', models: response.data.data?.length || 0 };
     } catch (error) {
+      monitoringService.updateProviderStatus('grok', 'unhealthy', { error: error.message });
       return { status: 'unhealthy', error: error.message };
     }
   }

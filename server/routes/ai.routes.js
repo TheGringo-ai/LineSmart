@@ -1,5 +1,6 @@
 import express from 'express';
 import aiManager from '../services/ai/ai-manager.service.js';
+import monitoringService from '../services/monitoring.service.js';
 import logger from '../config/logger.js';
 
 const router = express.Router();
@@ -462,6 +463,80 @@ router.get('/recommend/:taskType', (req, res) => {
     logger.error('Recommendation endpoint error', { error: error.message });
     res.status(500).json({
       error: 'Failed to get recommendation',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ai/metrics
+ * Get detailed monitoring metrics for all AI providers
+ */
+router.get('/metrics', (req, res) => {
+  try {
+    const metrics = monitoringService.getAllMetrics();
+
+    res.json({
+      success: true,
+      data: metrics
+    });
+  } catch (error) {
+    logger.error('Metrics endpoint error', { error: error.message });
+    res.status(500).json({
+      error: 'Failed to get metrics',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ai/metrics/:provider
+ * Get monitoring metrics for a specific provider
+ */
+router.get('/metrics/:provider', (req, res) => {
+  try {
+    const { provider } = req.params;
+    const metrics = monitoringService.getProviderMetrics(provider);
+
+    if (!metrics) {
+      return res.status(404).json({
+        success: false,
+        error: `Provider '${provider}' not found`
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        provider,
+        metrics
+      }
+    });
+  } catch (error) {
+    logger.error('Provider metrics endpoint error', { error: error.message });
+    res.status(500).json({
+      error: 'Failed to get provider metrics',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/ai/health-summary
+ * Get health summary for dashboard
+ */
+router.get('/health-summary', (req, res) => {
+  try {
+    const summary = monitoringService.getHealthSummary();
+
+    res.json({
+      success: true,
+      data: summary
+    });
+  } catch (error) {
+    logger.error('Health summary endpoint error', { error: error.message });
+    res.status(500).json({
+      error: 'Failed to get health summary',
       message: error.message
     });
   }
