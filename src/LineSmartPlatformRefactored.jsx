@@ -13,7 +13,7 @@ import {
 } from './hooks';
 
 // Import components
-import { Header, NavigationTabs } from './components/ui';
+import { Header, NavigationTabs, ErrorNotification } from './components/ui';
 import { AddEmployeeModal, EmployeeDetailModal } from './components/modals';
 import { DashboardView, QuizView, ResultsView, ReviewTrainingView } from './components/views';
 
@@ -48,13 +48,15 @@ const LineSmartPlatform = () => {
     saveTraining,
     saveQuizResult,
     loading: companyLoading,
-    rolePermissions
+    rolePermissions,
+    error: companyError
   } = useCompany();
 
   // View state - null means "waiting to determine", then we set the right view
   const [currentView, setCurrentView] = useState(null);
   const [showTrainingData, setShowTrainingData] = useState(false);
   const [initialLoadDone, setInitialLoadDone] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
   // Custom hooks
   const setupWizard = useSetupWizard();
@@ -111,6 +113,13 @@ const LineSmartPlatform = () => {
     }
   }, [company]);
 
+  // Sync company context error with local error state
+  useEffect(() => {
+    if (companyError) {
+      setErrorMessage(companyError);
+    }
+  }, [companyError]);
+
   // Computed values
   const currentUser = userProfile ? {
     id: userProfile.id,
@@ -140,6 +149,7 @@ const LineSmartPlatform = () => {
   // Handle setup completion - save to Firestore
   const handleSetupComplete = async (config) => {
     try {
+      setErrorMessage(null);
       await saveCompany({
         name: config.companyName,
         industry: config.industry,
@@ -168,12 +178,14 @@ const LineSmartPlatform = () => {
       setCurrentView('dashboard');
     } catch (error) {
       console.error('Error saving company:', error);
+      setErrorMessage(error.message || 'Failed to save company information');
     }
   };
 
   // Handle adding employee - save to Firestore
   const handleAddEmployee = async () => {
     try {
+      setErrorMessage(null);
       const newEmp = employeeManagement.newEmployee;
       await addFirestoreEmployee({
         name: newEmp.name,
@@ -189,6 +201,7 @@ const LineSmartPlatform = () => {
       employeeManagement.resetNewEmployee();
     } catch (error) {
       console.error('Error adding employee:', error);
+      setErrorMessage(error.message || 'Failed to add employee');
     }
   };
 
@@ -212,6 +225,7 @@ const LineSmartPlatform = () => {
   const handleCompleteTraining = async () => {
     if (employeeManagement.selectedEmployee && quiz.quizResults) {
       try {
+        setErrorMessage(null);
         // Save quiz result to Firestore
         await saveQuizResult({
           employeeId: employeeManagement.selectedEmployee.id,
@@ -234,6 +248,7 @@ const LineSmartPlatform = () => {
         }
       } catch (error) {
         console.error('Error saving quiz result:', error);
+        setErrorMessage(error.message || 'Failed to save quiz result');
       }
     }
     setCurrentView('dashboard');
@@ -246,6 +261,7 @@ const LineSmartPlatform = () => {
     // Save generated training to Firestore
     if (trainingGeneration.generatedTraining) {
       try {
+        setErrorMessage(null);
         await saveTraining({
           title: trainingGeneration.trainingData.title,
           department: trainingGeneration.trainingData.department,
@@ -261,6 +277,7 @@ const LineSmartPlatform = () => {
         });
       } catch (error) {
         console.error('Error saving training:', error);
+        setErrorMessage(error.message || 'Failed to save training');
       }
     }
   };
@@ -279,6 +296,12 @@ const LineSmartPlatform = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Error Notification */}
+      <ErrorNotification 
+        error={errorMessage || companyError} 
+        onClose={() => setErrorMessage(null)} 
+      />
+
       {/* Header */}
       <Header
         setupConfig={setupWizard.setupConfig}
