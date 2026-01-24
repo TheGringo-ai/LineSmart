@@ -165,7 +165,10 @@ const LineSmartPlatform = () => {
       // Refresh user profile to get the updated companyId
       await refreshUserProfile();
       setupWizard.setCompletedSetup(true);
+      // Clear setup data from localStorage after successful save
+      setupWizard.clearSetupData();
       setCurrentView('dashboard');
+      console.log('✅ Setup completed and saved to Firebase');
     } catch (error) {
       console.error('Error saving company:', error);
     }
@@ -259,6 +262,9 @@ const LineSmartPlatform = () => {
           assignedEmployees: trainingGeneration.trainingData.assignedEmployees,
           dueDate: trainingGeneration.trainingData.dueDate
         });
+        // Clear training data from localStorage after successful save
+        trainingGeneration.clearTrainingData();
+        console.log('✅ Training saved to Firebase and localStorage cleared');
       } catch (error) {
         console.error('Error saving training:', error);
       }

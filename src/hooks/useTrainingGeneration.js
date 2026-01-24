@@ -1,10 +1,14 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { initialTrainingData, languages } from '../constants';
 import { parseTrainingResponse } from '../utils';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set up PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+
+const TRAINING_DATA_KEY = 'linesmart_training_data';
+const GENERATED_TRAINING_KEY = 'linesmart_generated_training';
+const DOCUMENT_CONTENT_KEY = 'linesmart_document_content';
 
 /**
  * Extract text content from a PDF file
@@ -55,15 +59,111 @@ const extractDocumentText = async (file) => {
 
 /**
  * Custom hook for managing training generation state and API calls
+ * Now with localStorage persistence to retain data across page refreshes
  */
 export const useTrainingGeneration = (setupConfig, employees) => {
-  const [trainingData, setTrainingData] = useState(initialTrainingData);
-  const [generatedTraining, setGeneratedTraining] = useState(null);
+  // Initialize state from localStorage if available
+  const [trainingData, setTrainingData] = useState(() => {
+    try {
+      const saved = localStorage.getItem(TRAINING_DATA_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // Restore documents without File objects (can't serialize Files)
+        return {
+          ...parsed,
+          documents: parsed.documents?.map(doc => ({ ...doc, file: null })) || []
+        };
+      }
+      return initialTrainingData;
+    } catch (error) {
+      console.error('Error loading training data from localStorage:', error);
+      return initialTrainingData;
+    }
+  });
+
+  const [generatedTraining, setGeneratedTraining] = useState(() => {
+    try {
+      const saved = localStorage.getItem(GENERATED_TRAINING_KEY);
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error('Error loading generated training from localStorage:', error);
+      return null;
+    }
+  });
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [ragAnalysis, setRagAnalysis] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [documentContent, setDocumentContent] = useState('');
+
+  const [documentContent, setDocumentContent] = useState(() => {
+    try {
+      const saved = localStorage.getItem(DOCUMENT_CONTENT_KEY);
+      return saved || '';
+    } catch (error) {
+      console.error('Error loading document content from localStorage:', error);
+      return '';
+    }
+  });
+
   const fileInputRef = useRef(null);
+
+  // Persist trainingData to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      // Don't store File objects, just metadata
+      const dataToStore = {
+        ...trainingData,
+        documents: trainingData.documents?.map(doc => ({
+          name: doc.name,
+          size: doc.size,
+          type: doc.type,
+          extractedText: doc.extractedText
+          // Omit file: doc.file as File objects can't be serialized
+        })) || []
+      };
+      localStorage.setItem(TRAINING_DATA_KEY, JSON.stringify(dataToStore));
+    } catch (error) {
+      console.error('Error saving training data to localStorage:', error);
+    }
+  }, [trainingData]);
+
+  // Persist generatedTraining to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (generatedTraining) {
+        localStorage.setItem(GENERATED_TRAINING_KEY, JSON.stringify(generatedTraining));
+      } else {
+        localStorage.removeItem(GENERATED_TRAINING_KEY);
+      }
+    } catch (error) {
+      console.error('Error saving generated training to localStorage:', error);
+    }
+  }, [generatedTraining]);
+
+  // Persist documentContent to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (documentContent) {
+        localStorage.setItem(DOCUMENT_CONTENT_KEY, documentContent);
+      } else {
+        localStorage.removeItem(DOCUMENT_CONTENT_KEY);
+      }
+    } catch (error) {
+      console.error('Error saving document content to localStorage:', error);
+    }
+  }, [documentContent]);
+
+  // Clear localStorage data (called after training is saved to Firebase)
+  const clearTrainingData = useCallback(() => {
+    try {
+      localStorage.removeItem(TRAINING_DATA_KEY);
+      localStorage.removeItem(GENERATED_TRAINING_KEY);
+      localStorage.removeItem(DOCUMENT_CONTENT_KEY);
+      console.log('✅ Training data cleared from localStorage');
+    } catch (error) {
+      console.error('Error clearing training data from localStorage:', error);
+    }
+  }, []);
 
   const updateTrainingData = useCallback((field, value) => {
     setTrainingData(prev => ({ ...prev, [field]: value }));
@@ -635,7 +735,8 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
     setGeneratedTraining(null);
     setRagAnalysis(null);
     setDocumentContent('');
-  }, []);
+    clearTrainingData();
+  }, [clearTrainingData]);
 
   const getEnabledModels = useCallback(() => {
     return Object.entries(setupConfig.aiModels.configs).filter(([key, config]) =>
@@ -661,6 +762,7 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
     analyzeTrainingWithRAG,
     generateTraining,
     resetTrainingData,
+    clearTrainingData,
     getEnabledModels
   };
 };

@@ -1,12 +1,64 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+
+const QUIZ_ANSWERS_KEY = 'linesmart_quiz_answers';
+const QUIZ_QUESTION_INDEX_KEY = 'linesmart_quiz_question_index';
 
 /**
  * Custom hook for managing quiz state and operations
+ * Now with localStorage persistence to retain progress across page refreshes
  */
 export const useQuiz = () => {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [userAnswers, setUserAnswers] = useState({});
+  // Initialize state from localStorage if available
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_QUESTION_INDEX_KEY);
+      return saved ? parseInt(saved, 10) : 0;
+    } catch (error) {
+      console.error('Error loading quiz question index from localStorage:', error);
+      return 0;
+    }
+  });
+
+  const [userAnswers, setUserAnswers] = useState(() => {
+    try {
+      const saved = localStorage.getItem(QUIZ_ANSWERS_KEY);
+      return saved ? JSON.parse(saved) : {};
+    } catch (error) {
+      console.error('Error loading quiz answers from localStorage:', error);
+      return {};
+    }
+  });
+
   const [quizResults, setQuizResults] = useState(null);
+
+  // Persist currentQuestionIndex to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUIZ_QUESTION_INDEX_KEY, currentQuestionIndex.toString());
+    } catch (error) {
+      console.error('Error saving quiz question index to localStorage:', error);
+    }
+  }, [currentQuestionIndex]);
+
+  // Persist userAnswers to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(QUIZ_ANSWERS_KEY, JSON.stringify(userAnswers));
+    } catch (error) {
+      console.error('Error saving quiz answers to localStorage:', error);
+    }
+  }, [userAnswers]);
+
+  // Clear localStorage data when quiz is completed or reset
+  const clearQuizData = useCallback(() => {
+    try {
+      localStorage.removeItem(QUIZ_ANSWERS_KEY);
+      localStorage.removeItem(QUIZ_QUESTION_INDEX_KEY);
+      console.log('✅ Quiz data cleared from localStorage');
+    } catch (error) {
+      console.error('Error clearing quiz data from localStorage:', error);
+    }
+  }, []);
 
   const handleAnswerSelect = useCallback((questionIndex, answerIndex) => {
     setUserAnswers(prev => ({
@@ -19,8 +71,9 @@ export const useQuiz = () => {
     setCurrentQuestionIndex(0);
     setUserAnswers({});
     setQuizResults(null);
+    clearQuizData(); // Clear any old quiz data
     setCurrentView('quiz');
-  }, []);
+  }, [clearQuizData]);
 
   const submitQuiz = useCallback((generatedTraining, passingScore, setCurrentView) => {
     const results = generatedTraining.quiz.map((question, index) => ({
@@ -41,8 +94,10 @@ export const useQuiz = () => {
       percentage,
       passed: percentage >= (passingScore || 80)
     });
+    // Clear quiz data from localStorage after submission
+    clearQuizData();
     setCurrentView('results');
-  }, [userAnswers]);
+  }, [userAnswers, clearQuizData]);
 
   const goToPreviousQuestion = useCallback(() => {
     setCurrentQuestionIndex(prev => Math.max(0, prev - 1));
@@ -56,14 +111,16 @@ export const useQuiz = () => {
     setCurrentQuestionIndex(0);
     setUserAnswers({});
     setQuizResults(null);
+    clearQuizData();
     setCurrentView('quiz');
-  }, []);
+  }, [clearQuizData]);
 
   const resetQuiz = useCallback(() => {
     setCurrentQuestionIndex(0);
     setUserAnswers({});
     setQuizResults(null);
-  }, []);
+    clearQuizData();
+  }, [clearQuizData]);
 
   const isAllQuestionsAnswered = useCallback((totalQuestions) => {
     return Object.keys(userAnswers).length === totalQuestions;
@@ -88,7 +145,8 @@ export const useQuiz = () => {
     retakeQuiz,
     resetQuiz,
     isAllQuestionsAnswered,
-    getCurrentProgress
+    getCurrentProgress,
+    clearQuizData
   };
 };
 
