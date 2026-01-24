@@ -1,14 +1,73 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { initialSetupConfig, setupSteps } from '../constants';
 import { getIndustrySuggestions } from '../utils';
 
+const SETUP_STEP_KEY = 'linesmart_setup_step';
+const SETUP_CONFIG_KEY = 'linesmart_setup_config';
+const SETUP_COMPLETED_KEY = 'linesmart_setup_completed';
+
 /**
  * Custom hook for managing setup wizard state and navigation
+ * Now with localStorage persistence to retain data across page refreshes
  */
 export const useSetupWizard = () => {
-  const [setupStep, setSetupStep] = useState('welcome');
-  const [setupConfig, setSetupConfig] = useState(initialSetupConfig);
-  const [completedSetup, setCompletedSetup] = useState(false);
+  // Initialize state from localStorage if available
+  const [setupStep, setSetupStep] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SETUP_STEP_KEY);
+      return saved || 'welcome';
+    } catch (error) {
+      console.error('Error loading setup step from localStorage:', error);
+      return 'welcome';
+    }
+  });
+
+  const [setupConfig, setSetupConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SETUP_CONFIG_KEY);
+      return saved ? JSON.parse(saved) : initialSetupConfig;
+    } catch (error) {
+      console.error('Error loading setup config from localStorage:', error);
+      return initialSetupConfig;
+    }
+  });
+
+  const [completedSetup, setCompletedSetup] = useState(() => {
+    try {
+      const saved = localStorage.getItem(SETUP_COMPLETED_KEY);
+      return saved === 'true';
+    } catch (error) {
+      console.error('Error loading setup completed from localStorage:', error);
+      return false;
+    }
+  });
+
+  // Persist setupStep to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETUP_STEP_KEY, setupStep);
+    } catch (error) {
+      console.error('Error saving setup step to localStorage:', error);
+    }
+  }, [setupStep]);
+
+  // Persist setupConfig to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETUP_CONFIG_KEY, JSON.stringify(setupConfig));
+    } catch (error) {
+      console.error('Error saving setup config to localStorage:', error);
+    }
+  }, [setupConfig]);
+
+  // Persist completedSetup to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(SETUP_COMPLETED_KEY, completedSetup.toString());
+    } catch (error) {
+      console.error('Error saving setup completed to localStorage:', error);
+    }
+  }, [completedSetup]);
 
   const handleSetupNext = useCallback(() => {
     const currentIndex = setupSteps.indexOf(setupStep);
@@ -164,6 +223,18 @@ export const useSetupWizard = () => {
     }));
   }, []);
 
+  // Clear localStorage data (called after successful setup completion)
+  const clearSetupData = useCallback(() => {
+    try {
+      localStorage.removeItem(SETUP_STEP_KEY);
+      localStorage.removeItem(SETUP_CONFIG_KEY);
+      // Keep SETUP_COMPLETED_KEY to remember setup was done
+      console.log('✅ Setup wizard data cleared from localStorage');
+    } catch (error) {
+      console.error('Error clearing setup data from localStorage:', error);
+    }
+  }, []); // Empty deps - function doesn't depend on any state
+
   // Update completedSetup when reaching the complete step
   const isComplete = setupStep === 'complete';
   const currentStepIndex = setupSteps.indexOf(setupStep) + 1;
@@ -192,6 +263,7 @@ export const useSetupWizard = () => {
     toggleOnboardingTraining,
     completedSetup: completedSetup || isComplete,
     setCompletedSetup,
+    clearSetupData,
     currentStepIndex,
     totalSteps,
     progressPercentage

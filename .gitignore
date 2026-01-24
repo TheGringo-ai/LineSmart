@@ -1,3 +1,5 @@
 node_modules
 server/.env
 server/.env
+test-data-persistence.js
+build/
