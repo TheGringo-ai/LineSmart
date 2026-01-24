@@ -743,7 +743,7 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
     setRagAnalysis(null);
     setDocumentContent('');
     clearTrainingData();
-  }, []); // clearTrainingData is stable (empty deps), not needed
+  }, []); // Stable clearTrainingData function doesn't need to be in deps
 
   const getEnabledModels = useCallback(() => {
     return Object.entries(setupConfig.aiModels.configs).filter(([key, config]) =>

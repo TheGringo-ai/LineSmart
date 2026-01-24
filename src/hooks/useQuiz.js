@@ -73,7 +73,7 @@ export const useQuiz = () => {
     setQuizResults(null);
     clearQuizData(); // Clear any old quiz data
     setCurrentView('quiz');
-  }, []); // clearQuizData is stable (empty deps), so not needed in deps
+  }, []); // Stable clearQuizData function doesn't need to be in deps
 
   const submitQuiz = useCallback((generatedTraining, passingScore, setCurrentView) => {
     const results = generatedTraining.quiz.map((question, index) => ({
@@ -97,7 +97,7 @@ export const useQuiz = () => {
     // Clear quiz data from localStorage after submission
     clearQuizData();
     setCurrentView('results');
-  }, [userAnswers]); // clearQuizData is stable, only userAnswers changes
+  }, [userAnswers]); // clearQuizData is stable, only userAnswers can change
 
   const goToPreviousQuestion = useCallback(() => {
     setCurrentQuestionIndex(prev => Math.max(0, prev - 1));
@@ -113,14 +113,14 @@ export const useQuiz = () => {
     setQuizResults(null);
     clearQuizData();
     setCurrentView('quiz');
-  }, []); // clearQuizData is stable, not needed in deps
+  }, []); // Stable clearQuizData function doesn't need to be in deps
 
   const resetQuiz = useCallback(() => {
     setCurrentQuestionIndex(0);
     setUserAnswers({});
     setQuizResults(null);
     clearQuizData();
-  }, []); // clearQuizData is stable, not needed in deps
+  }, []); // Stable clearQuizData function doesn't need to be in deps
 
   const isAllQuestionsAnswered = useCallback((totalQuestions) => {
     return Object.keys(userAnswers).length === totalQuestions;
