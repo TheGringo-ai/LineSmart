@@ -3,6 +3,7 @@ import { useAuth } from './contexts/AuthContext';
 import { LoginPage, SignupPage, ProtectedRoute } from './components/auth';
 import JoinPage from './components/auth/JoinPage';
 import LineSmartPlatform from './LineSmartPlatformRefactored';
+import ErrorBoundary from './components/ErrorBoundary';
 
 /**
  * App Component
@@ -130,9 +131,11 @@ const App = () => {
 
   // Show main app for authenticated users
   return (
-    <ProtectedRoute>
-      <LineSmartPlatform />
-    </ProtectedRoute>
+    <ErrorBoundary>
+      <ProtectedRoute>
+        <LineSmartPlatform />
+      </ProtectedRoute>
+    </ErrorBoundary>
   );
 };
 
