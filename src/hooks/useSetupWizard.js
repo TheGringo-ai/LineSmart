@@ -233,7 +233,7 @@ export const useSetupWizard = () => {
     } catch (error) {
       console.error('Error clearing setup data from localStorage:', error);
     }
-  }, []);
+  }, []); // Empty deps - function doesn't depend on any state
 
   // Update completedSetup when reaching the complete step
   const isComplete = setupStep === 'complete';

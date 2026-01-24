@@ -10,6 +10,9 @@ const TRAINING_DATA_KEY = 'linesmart_training_data';
 const GENERATED_TRAINING_KEY = 'linesmart_generated_training';
 const DOCUMENT_CONTENT_KEY = 'linesmart_document_content';
 
+// Debounce delay for localStorage writes (ms)
+const DEBOUNCE_DELAY = 1000;
+
 /**
  * Extract text content from a PDF file
  */
@@ -140,17 +143,21 @@ export const useTrainingGeneration = (setupConfig, employees) => {
     }
   }, [generatedTraining]);
 
-  // Persist documentContent to localStorage whenever it changes
+  // Persist documentContent to localStorage with debouncing to improve performance
   useEffect(() => {
-    try {
-      if (documentContent) {
-        localStorage.setItem(DOCUMENT_CONTENT_KEY, documentContent);
-      } else {
-        localStorage.removeItem(DOCUMENT_CONTENT_KEY);
+    const timeoutId = setTimeout(() => {
+      try {
+        if (documentContent) {
+          localStorage.setItem(DOCUMENT_CONTENT_KEY, documentContent);
+        } else {
+          localStorage.removeItem(DOCUMENT_CONTENT_KEY);
+        }
+      } catch (error) {
+        console.error('Error saving document content to localStorage:', error);
       }
-    } catch (error) {
-      console.error('Error saving document content to localStorage:', error);
-    }
+    }, DEBOUNCE_DELAY);
+
+    return () => clearTimeout(timeoutId);
   }, [documentContent]);
 
   // Clear localStorage data (called after training is saved to Firebase)
@@ -163,7 +170,7 @@ export const useTrainingGeneration = (setupConfig, employees) => {
     } catch (error) {
       console.error('Error clearing training data from localStorage:', error);
     }
-  }, []);
+  }, []); // Empty deps - function doesn't depend on any state
 
   const updateTrainingData = useCallback((field, value) => {
     setTrainingData(prev => ({ ...prev, [field]: value }));
@@ -736,7 +743,7 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
     setRagAnalysis(null);
     setDocumentContent('');
     clearTrainingData();
-  }, [clearTrainingData]);
+  }, []); // clearTrainingData is stable (empty deps), not needed
 
   const getEnabledModels = useCallback(() => {
     return Object.entries(setupConfig.aiModels.configs).filter(([key, config]) =>
