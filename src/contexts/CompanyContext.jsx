@@ -194,7 +194,7 @@ export const CompanyProvider = ({ children }) => {
           const userSnap = await getDoc(userRef);
           
           if (!userSnap.exists()) {
-            throw new Error('User document not found');
+            throw new Error('Unable to load user profile. Please try refreshing the page or contact support.');
           }
           
           const userData = userSnap.data() || {};
@@ -368,7 +368,9 @@ export const CompanyProvider = ({ children }) => {
             updated_at: serverTimestamp()
           });
         } else {
-          console.warn('Employee not found for quiz result update:', resultData.employeeId);
+          const warningMsg = `Employee ${resultData.employeeId} not found. Quiz result saved but employee record was not updated.`;
+          console.warn(warningMsg);
+          setError(warningMsg);
         }
       }
 
