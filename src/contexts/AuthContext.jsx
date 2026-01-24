@@ -181,12 +181,18 @@ export const AuthProvider = ({ children }) => {
 
   // Refresh user profile (to get updated companyId, etc.)
   const refreshUserProfile = async () => {
-    if (currentUser) {
-      const profile = await getUserProfile(currentUser.uid);
-      setUserProfile(profile);
-      return profile;
+    try {
+      if (currentUser) {
+        const profile = await getUserProfile(currentUser.uid);
+        setUserProfile(profile);
+        return profile;
+      }
+      return null;
+    } catch (err) {
+      console.error('Error refreshing user profile:', err);
+      setError(`Failed to refresh profile: ${err.message}`);
+      return null;
     }
-    return null;
   };
 
   // Listen for auth state changes
