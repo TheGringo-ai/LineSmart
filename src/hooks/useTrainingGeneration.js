@@ -3,28 +3,36 @@ import { initialTrainingData, languages } from '../constants';
 import { parseTrainingResponse } from '../utils';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker - use unpkg for reliable version matching
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /**
  * Extract text content from a PDF file
  */
 const extractTextFromPDF = async (file) => {
   try {
+    console.log('📄 Starting PDF extraction for:', file.name);
     const arrayBuffer = await file.arrayBuffer();
+    console.log('📄 Got array buffer, size:', arrayBuffer.byteLength);
+
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    console.log('📄 PDF loaded, pages:', pdf.numPages);
+
     let fullText = '';
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map(item => item.str).join(' ');
+      console.log(`📄 Page ${i}: extracted ${pageText.length} characters`);
       fullText += pageText + '\n\n';
     }
 
+    console.log('📄 Total extracted:', fullText.trim().length, 'characters');
     return fullText.trim();
   } catch (error) {
-    console.error('Error extracting PDF text:', error);
+    console.error('❌ Error extracting PDF text:', error);
+    console.error('❌ Error details:', error.message, error.stack);
     return null;
   }
 };
@@ -390,67 +398,63 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
 
   // Call backend API for training generation
   const callBackendAPI = useCallback(async (prompt, docContent) => {
-    // Use the correct API URL - prioritize the known working URL
-    const apiUrls = [
-      'https://linesmart-api-650169261019.us-central1.run.app',
-      process.env.REACT_APP_API_URL
-    ].filter(Boolean);
+    // Use the correct API URL - the known working Cloud Run URL
+    const apiUrl = 'https://linesmart-api-650169261019.us-central1.run.app/api/ai/generate-training';
 
-    // Remove duplicates
-    const uniqueUrls = [...new Set(apiUrls)];
+    console.log('🔌 Calling backend API at:', apiUrl);
+    console.log('📄 Document content length:', docContent?.length || 0, 'characters');
+    console.log('📝 Prompt length:', prompt?.length || 0, 'characters');
 
-    console.log('🔧 Environment API URL:', process.env.REACT_APP_API_URL || 'NOT SET');
-    console.log('🔧 Will try URLs:', uniqueUrls);
-
-    let lastError = null;
-
-    for (const baseUrl of uniqueUrls) {
-      try {
-        const apiUrl = `${baseUrl}/api/ai/generate-training`;
-
-        console.log('🔌 Trying backend API at:', apiUrl);
-        console.log('📄 Document content length:', docContent?.length || 0, 'characters');
-        console.log('📝 Prompt length:', prompt?.length || 0, 'characters');
-
-        const response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            prompt: prompt,
-            context: {
-              documentContent: docContent,
-              company: setupConfig?.company?.name || setupConfig?.companyName,
-              department: trainingData.department
-            },
-            options: {
-              questionCount: trainingData.quizConfig?.questionCount || 10,
-              maxTokens: 4000
-            }
-          })
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(`API error: ${response.status} - ${errorData.message || 'Unknown error'}`);
+    try {
+      const requestBody = {
+        prompt: prompt,
+        context: {
+          documentContent: docContent,
+          company: setupConfig?.company?.name || setupConfig?.companyName,
+          department: trainingData.department
+        },
+        options: {
+          questionCount: trainingData.quizConfig?.questionCount || 10,
+          maxTokens: 4000
         }
+      };
 
-        const result = await response.json();
-        console.log('✅ Backend API response received:', result.success ? 'Success' : 'Failed');
+      console.log('📤 Sending request to backend...');
 
-        if (result.success && result.data) {
-          // The backend now returns parsed training data directly
-          return result.data;
-        }
-        throw new Error('Invalid response structure from backend');
-      } catch (error) {
-        console.log(`❌ API call to ${baseUrl} failed:`, error.message);
-        lastError = error;
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      console.log('📥 Response status:', response.status, response.statusText);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Backend API error response:', errorText);
+        throw new Error(`API error: ${response.status} - ${errorText}`);
       }
-    }
 
-    throw lastError || new Error('All backend API attempts failed');
+      const result = await response.json();
+      console.log('✅ Backend API response:', {
+        success: result.success,
+        hasData: !!result.data,
+        provider: result.meta?.provider,
+        model: result.meta?.model
+      });
+
+      if (result.success && result.data) {
+        console.log('🎉 Using GPT-4o-mini generated training!');
+        return result.data;
+      }
+      throw new Error('Invalid response structure from backend');
+    } catch (error) {
+      console.error('❌ Backend API call failed:', error.message);
+      console.error('❌ Full error:', error);
+      throw error;
+    }
   }, [setupConfig, trainingData.department, trainingData.quizConfig?.questionCount]);
 
   const generateTrainingWithAPI = useCallback(async (prompt) => {
@@ -461,11 +465,18 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
       .join('\n\n');
     const docContent = documentContent || allDocText;
 
-    // First try backend API (has server-side API keys)
+    console.log('🚀 Starting API call chain...');
+    console.log('📄 Total document content:', docContent?.length || 0, 'characters');
+
+    // First try backend API (has server-side API keys - GPT-4o-mini)
     try {
-      return await callBackendAPI(prompt, docContent);
+      console.log('1️⃣ Trying backend API (GPT-4o-mini)...');
+      const result = await callBackendAPI(prompt, docContent);
+      console.log('✅ Backend API succeeded!');
+      return result;
     } catch (backendError) {
-      console.log('Backend API failed:', backendError.message);
+      console.warn('⚠️ Backend API failed:', backendError.message);
+      // Continue to next option
     }
 
     // Then try user-configured API keys
@@ -476,14 +487,20 @@ Generate EXACTLY ${questionCount} quiz questions covering different aspects of t
 
     if (enabledModels.length > 0) {
       try {
-        return await callUserConfiguredAPI(enabledModels[0], prompt);
+        console.log('2️⃣ Trying user-configured API:', enabledModels[0][0]);
+        const result = await callUserConfiguredAPI(enabledModels[0], prompt);
+        console.log('✅ User API succeeded!');
+        return result;
       } catch (error) {
-        console.log('User API failed:', error.message);
+        console.warn('⚠️ User API failed:', error.message);
       }
+    } else {
+      console.log('2️⃣ No user-configured API keys found');
     }
 
-    // Finally fall back to free LLaMA
-    console.log('⚠️ Falling back to free LLaMA API (limited capabilities)');
+    // Finally fall back to free LLaMA (limited but works)
+    console.log('3️⃣ Falling back to free LLaMA API (limited capabilities)');
+    console.log('⚠️ Note: LLaMA has limited context and may produce less detailed training');
     return await callFreeLlamaAPI(prompt);
   }, [setupConfig, trainingData.documents, documentContent, callBackendAPI, callUserConfiguredAPI, callFreeLlamaAPI]);
 
