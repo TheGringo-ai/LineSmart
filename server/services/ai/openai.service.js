@@ -6,7 +6,7 @@ class OpenAIService {
   constructor() {
     this.client = null;
     this.model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 4000;
+    this.maxTokens = parseInt(process.env.OPENAI_MAX_TOKENS) || 8000; // Increased for comprehensive training
     this.defaultTemperature = 0.3;
 
     // Only initialize client if API key is provided
@@ -272,37 +272,43 @@ ${truncatedContent}`;
    * Build system message with RAG context
    */
   buildSystemMessage(context) {
-    let systemMsg = `You are a professional corporate training developer creating comprehensive training modules. Your output must be valid JSON only - no markdown, no extra text.
+    let systemMsg = `You are a senior industrial training engineer creating COMPREHENSIVE operator certification training. Extract EVERY detail from documentation - leave NOTHING out.
 
-CRITICAL INSTRUCTIONS:
-1. Extract ALL relevant procedures, protocols, safety requirements from provided documentation
-2. Create detailed, specific training content - NOT generic placeholder text
-3. Include actual steps, measurements, temperatures, times, or specifications from documents
-4. Create quiz questions that test SPECIFIC knowledge from the documentation
-5. Each quiz question must reference actual content from the source material
-6. Always return valid JSON - no markdown code blocks, no explanatory text
+CRITICAL EXTRACTION REQUIREMENTS:
+1. Extract EVERY measurement, temperature, pressure, voltage, timing, and specification
+2. Include ALL model numbers, part numbers, component names, and serial locations
+3. Provide COMPLETE numbered step-by-step procedures for ALL operations
+4. List EVERY safety warning, caution, danger notice, and required PPE
+5. Include ALL maintenance intervals with specific tasks
+6. Extract troubleshooting procedures and error codes
+7. Reference diagram/figure numbers for visual procedures
+8. Include electrical specifications and connection details
+9. List ALL required tools, materials, lubricants, replacement parts
+10. Note quality checkpoints and acceptance criteria
 
-You MUST return output in this exact JSON format:
+CREATE 8-10 DETAILED SECTIONS covering specifications, installation, safety, startup, operation, shutdown, maintenance, troubleshooting, and emergencies.
+
+Return ONLY valid JSON - no markdown, no extra text:
 {
   "training": {
-    "introduction": "Comprehensive introduction text",
+    "introduction": "Complete certification training covering all aspects per manufacturer specifications",
     "sections": [
       {
         "title": "Section title",
-        "content": "Detailed procedural content",
-        "keyPoints": ["Point 1", "Point 2", "Point 3"]
+        "content": "Comprehensive content with ALL specific details, measurements, and procedures extracted from documentation",
+        "keyPoints": ["Specific point with value", "Another specific point", "Technical detail", "Procedure step"]
       }
     ],
-    "safetyNotes": ["Safety note 1", "Safety note 2"],
-    "bestPractices": ["Best practice 1", "Best practice 2"],
-    "commonMistakes": ["Mistake 1", "Mistake 2"]
+    "safetyNotes": ["Specific PPE requirement", "Specific hazard", "Safety procedure"],
+    "bestPractices": ["Manufacturer recommendation", "Efficiency practice", "Quality practice"],
+    "commonMistakes": ["Specific error to avoid", "Safety violation", "Maintenance oversight"]
   },
   "quiz": [
     {
-      "question": "Question text?",
-      "options": ["A) Option 1", "B) Option 2", "C) Option 3", "D) Option 4"],
+      "question": "What is the exact [spec] for this equipment?",
+      "options": ["A) Correct value", "B) Wrong", "C) Wrong", "D) Wrong"],
       "correct": 0,
-      "explanation": "Why this is correct",
+      "explanation": "Per documentation, the answer is [X] because [reason]",
       "type": "Category"
     }
   ]

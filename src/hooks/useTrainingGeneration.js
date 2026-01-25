@@ -7,11 +7,11 @@ import * as pdfjsLib from 'pdfjs-dist';
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /**
- * Extract text content from a PDF file
+ * Extract text AND images from a PDF file for comprehensive training
  */
 const extractTextFromPDF = async (file) => {
   try {
-    console.log('📄 Starting PDF extraction for:', file.name);
+    console.log('📄 Starting comprehensive PDF extraction for:', file.name);
     const arrayBuffer = await file.arrayBuffer();
     console.log('📄 Got array buffer, size:', arrayBuffer.byteLength);
 
@@ -19,19 +19,40 @@ const extractTextFromPDF = async (file) => {
     console.log('📄 PDF loaded, pages:', pdf.numPages);
 
     let fullText = '';
+    const extractedImages = [];
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
+
+      // Extract text
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map(item => item.str).join(' ');
+      fullText += `\n--- PAGE ${i} ---\n${pageText}\n`;
       console.log(`📄 Page ${i}: extracted ${pageText.length} characters`);
-      fullText += pageText + '\n\n';
+
+      // Extract images from page
+      try {
+        const operatorList = await page.getOperatorList();
+        const imgCount = operatorList.fnArray.filter(fn =>
+          fn === pdfjsLib.OPS.paintImageXObject || fn === pdfjsLib.OPS.paintJpegXObject
+        ).length;
+
+        if (imgCount > 0) {
+          console.log(`🖼️ Page ${i}: found ${imgCount} images`);
+          fullText += `[Page ${i} contains ${imgCount} diagram(s)/image(s) - reference for visual procedures]\n`;
+        }
+      } catch (imgError) {
+        // Image extraction is optional, continue with text
+        console.log(`📄 Page ${i}: image extraction skipped`);
+      }
     }
 
     console.log('📄 Total extracted:', fullText.trim().length, 'characters');
+    console.log('🖼️ Total images found:', extractedImages.length);
+
     return fullText.trim();
   } catch (error) {
-    console.error('❌ Error extracting PDF text:', error);
+    console.error('❌ Error extracting PDF content:', error);
     console.error('❌ Error details:', error.message, error.stack);
     return null;
   }
@@ -235,76 +256,126 @@ export const useTrainingGeneration = (setupConfig, employees) => {
 
     const combinedDocContent = documentContent || allDocText;
 
-    // Truncate if too long (keep most important content)
-    const maxDocLength = 20000;
-    const truncatedDocContent = combinedDocContent.length > maxDocLength
-      ? combinedDocContent.substring(0, maxDocLength) + '\n\n[Document continues...]'
-      : combinedDocContent;
+    // NO LIMITS - send ALL document content to AI for comprehensive extraction
+    console.log('📄 Document content length:', combinedDocContent.length, 'characters (no limit - sending all)');
 
-    console.log('📄 Document content length:', combinedDocContent.length, 'characters');
-
-    if (!truncatedDocContent || truncatedDocContent.length < 100) {
+    if (!combinedDocContent || combinedDocContent.length < 100) {
       console.warn('⚠️ No document content available for training generation');
     }
 
-    return `You are a professional corporate training developer for ${companyName}. Create a comprehensive, enterprise-grade training module based EXCLUSIVELY on the documentation provided below.
+    return `You are a senior industrial training engineer creating COMPREHENSIVE operator certification training for ${companyName}.
+
+Your task: Extract EVERY technical detail, specification, procedure, and safety requirement from the complete documentation below. Leave NOTHING out.
 
 TRAINING REQUIREMENTS:
 - Title: ${trainingData.title || 'Training Module'}
 - Department: ${trainingData.department || 'General'}
 - Language: ${targetLanguage}
-- Quiz Questions Required: ${questionCount}
+- Quiz Questions: ${questionCount}
 
-SOURCE DOCUMENTATION:
-====================
-${truncatedDocContent || 'No documentation provided. Create a general training outline.'}
-====================
+COMPLETE SOURCE DOCUMENTATION:
+===============================
+${combinedDocContent || 'No documentation provided.'}
+===============================
 
-CRITICAL INSTRUCTIONS:
-1. Extract ALL relevant procedures, protocols, safety requirements, and best practices from the documentation above
-2. Create detailed, specific training content - NOT generic placeholder text
-3. Include actual steps, measurements, temperatures, times, or specifications mentioned in the documents
-4. Create ${questionCount} quiz questions that test SPECIFIC knowledge from the documents
-5. Each quiz question must reference actual content from the documentation
-6. Include safety warnings and compliance requirements mentioned in the docs
+MANDATORY EXTRACTION REQUIREMENTS:
+1. Extract EVERY measurement, temperature, pressure, timing, voltage, amperage specification
+2. Include ALL model numbers, part numbers, serial number locations, component names
+3. Provide COMPLETE numbered step-by-step procedures for ALL operations
+4. List EVERY safety warning, caution, danger statement, and required PPE
+5. Include ALL maintenance intervals (daily, weekly, monthly, hourly)
+6. Extract troubleshooting tables, error codes, and diagnostic procedures
+7. Reference figure numbers, diagram descriptions, and visual indicators
+8. Include electrical schematics info, wiring details, and connection points
+9. List ALL required tools, materials, lubricants, and replacement parts
+10. Extract quality checkpoints, acceptance criteria, and inspection requirements
+11. Include installation requirements, leveling specs, utility connections
+12. Note any referenced standards (OSHA, NFPA, NEC, manufacturer codes)
 
-Return ONLY valid JSON (no markdown code blocks, no extra text):
+CREATE 8-10 DETAILED SECTIONS:
+- Machine Specifications (ALL technical data)
+- Installation Requirements
+- Pre-Operation Safety Checklist
+- Start-Up Procedure (complete steps)
+- Operating Procedures
+- Shutdown Procedure
+- Daily/Weekly Maintenance
+- Periodic Maintenance (hours-based)
+- Troubleshooting Guide
+- Emergency Procedures
+
+Return ONLY valid JSON:
 {
   "training": {
-    "introduction": "Comprehensive introduction to ${trainingData.title} covering the key topics from the documentation",
+    "introduction": "Complete operator certification training for [equipment model] covering installation, operation, maintenance, and safety per manufacturer specifications",
     "sections": [
       {
-        "title": "Section title from document",
-        "content": "Detailed procedural content with specific steps, measurements, and requirements from the documentation. Include numbered steps if applicable.",
-        "keyPoints": ["Specific technical point 1", "Specific technical point 2", "Specific technical point 3", "Specific technical point 4"]
+        "title": "Machine Specifications",
+        "content": "Model: [exact model]. Dimensions: [exact]. Electrical: [voltage/phase/amps]. Capacity: [exact]. Weight: [exact]. Operating temp: [range]. All specifications from documentation.",
+        "keyPoints": ["Spec 1 with exact value", "Spec 2 with exact value", "Spec 3", "Spec 4"]
       },
       {
-        "title": "Another key section",
-        "content": "More detailed content from documents",
-        "keyPoints": ["Point 1", "Point 2", "Point 3"]
+        "title": "Installation Requirements",
+        "content": "Floor requirements, utility connections, clearances, leveling procedures, and initial setup from documentation.",
+        "keyPoints": ["Requirement 1", "Requirement 2", "Requirement 3", "Requirement 4"]
       },
       {
-        "title": "Safety and Compliance",
-        "content": "Safety requirements and compliance information from documentation",
-        "keyPoints": ["Safety point 1", "Safety point 2", "Safety point 3"]
+        "title": "Safety Requirements & PPE",
+        "content": "ALL safety warnings, required PPE, lockout/tagout procedures, and hazard identification from documentation.",
+        "keyPoints": ["PPE item 1", "Safety device 1", "Warning 1", "Hazard 1"]
+      },
+      {
+        "title": "Pre-Operation Checklist",
+        "content": "Complete inspection checklist before starting: visual checks, fluid levels, safety devices, connections, etc.",
+        "keyPoints": ["Check 1", "Check 2", "Check 3", "Check 4"]
+      },
+      {
+        "title": "Start-Up Procedure",
+        "content": "Step 1: [exact action]. Step 2: [exact action]. Step 3: [action]. Continue ALL steps with parameters and verification points.",
+        "keyPoints": ["Critical step", "Parameter to verify", "Safety check", "Indicator to watch"]
+      },
+      {
+        "title": "Normal Operation",
+        "content": "Operating parameters, cycle times, adjustments, product handling, monitoring points, and quality verification procedures.",
+        "keyPoints": ["Parameter 1: value", "Parameter 2: value", "Quality check", "Monitoring point"]
+      },
+      {
+        "title": "Shutdown Procedure",
+        "content": "Complete shutdown steps, cleaning requirements, securing equipment, and end-of-shift procedures.",
+        "keyPoints": ["Step 1", "Cleaning requirement", "Securing step", "Documentation"]
+      },
+      {
+        "title": "Preventive Maintenance Schedule",
+        "content": "Daily: [tasks]. Weekly: [tasks]. Monthly: [tasks]. Every [X] hours: [tasks]. Annual: [tasks]. Include lubricants, parts, and procedures.",
+        "keyPoints": ["Daily task", "Weekly task", "Hourly interval task", "Lubrication point"]
+      },
+      {
+        "title": "Troubleshooting Guide",
+        "content": "Problem: [symptom] - Cause: [reason] - Solution: [fix]. Include all error codes and diagnostic procedures from documentation.",
+        "keyPoints": ["Problem/solution 1", "Problem/solution 2", "Error code meaning", "When to call service"]
+      },
+      {
+        "title": "Emergency Procedures",
+        "content": "Emergency stop locations, emergency shutdown procedure, fire response, injury response, and emergency contacts.",
+        "keyPoints": ["E-stop location", "Emergency action 1", "Emergency action 2", "Contact info"]
       }
     ],
-    "safetyNotes": ["Specific safety requirement from docs", "Another safety requirement", "PPE or protection requirements"],
-    "bestPractices": ["Best practice 1 from docs", "Best practice 2", "Best practice 3"],
-    "commonMistakes": ["Common error to avoid", "Another mistake", "Third mistake to prevent"]
+    "safetyNotes": ["Specific PPE required", "Specific hazard warning", "Lockout/tagout requirement", "Emergency procedure"],
+    "bestPractices": ["Manufacturer recommendation 1", "Efficiency practice", "Quality practice", "Longevity tip"],
+    "commonMistakes": ["Operational error to avoid", "Safety violation to prevent", "Maintenance oversight", "Quality issue cause"]
   },
   "quiz": [
     {
-      "question": "Specific question about content from the documentation?",
-      "options": ["A) Correct answer from docs", "B) Plausible but wrong", "C) Another wrong option", "D) Fourth option"],
+      "question": "What is the exact [specification] for the ${trainingData.title || 'equipment'}?",
+      "options": ["A) [Correct value from docs]", "B) [Plausible wrong]", "C) [Wrong]", "D) [Wrong]"],
       "correct": 0,
-      "explanation": "This is correct because [reference to document content]",
-      "type": "Procedures"
+      "explanation": "Per manufacturer documentation, the correct answer is [X]. This is critical for [reason].",
+      "type": "Specifications"
     }
   ]
 }
 
-Generate EXACTLY ${questionCount} quiz questions covering different aspects of the documentation.`;
+Generate EXACTLY ${questionCount} questions covering: specifications (2), safety (2), operations (3), maintenance (3)`;
   }, [trainingData, setupConfig, documentContent]);
 
   const callUserConfiguredAPI = useCallback(async ([modelName, config], prompt) => {
