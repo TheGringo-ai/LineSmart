@@ -1,6 +1,10 @@
-import React, { useState, useCallback } from 'react';
-import { Play, Download, AlertCircle, FileText, Eye, X } from 'lucide-react';
+import React, { useState, useCallback, useRef } from 'react';
+import { Play, Download, AlertCircle, FileText, Eye, X, Printer } from 'lucide-react';
 import { getLanguageName } from '../../utils';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Ensure PDF.js worker is set
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /**
  * Training review view component
@@ -11,6 +15,9 @@ export const ReviewTrainingView = ({
   onStartQuiz
 }) => {
   const [viewingDocument, setViewingDocument] = useState(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printProgress, setPrintProgress] = useState('');
+  const printContentRef = useRef(null);
 
   // Create object URL for viewing PDF at specific page
   const viewDocument = useCallback((doc, page = 1) => {
@@ -19,6 +26,204 @@ export const ReviewTrainingView = ({
       setViewingDocument({ ...doc, url, page });
     }
   }, []);
+
+  // Render PDF pages as images for printing
+  const renderPDFPagesAsImages = async (file) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const images = [];
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      setPrintProgress(`Rendering ${file.name} - Page ${i} of ${pdf.numPages}...`);
+      const page = await pdf.getPage(i);
+      const scale = 1.5; // Good quality for printing
+      const viewport = page.getViewport({ scale });
+
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+
+      await page.render({ canvasContext: context, viewport }).promise;
+      images.push({
+        dataUrl: canvas.toDataURL('image/jpeg', 0.85),
+        pageNum: i,
+        width: viewport.width,
+        height: viewport.height
+      });
+    }
+
+    return images;
+  };
+
+  // Print training with embedded PDF pages
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    setPrintProgress('Preparing training document...');
+
+    try {
+      // Render all PDF pages as images
+      const allDocImages = [];
+      for (const doc of (trainingData.documents || [])) {
+        if (doc.file) {
+          const images = await renderPDFPagesAsImages(doc.file);
+          allDocImages.push({ name: doc.name, images });
+        }
+      }
+
+      setPrintProgress('Opening print dialog...');
+
+      // Create print window
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        alert('Please allow popups to print the training document.');
+        setIsPrinting(false);
+        return;
+      }
+
+      // Build print HTML
+      const printHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>${trainingData.title} - Training Document</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              font-family: Arial, sans-serif;
+              line-height: 1.6;
+              color: #333;
+              max-width: 8.5in;
+              margin: 0 auto;
+              padding: 0.5in;
+            }
+            h1 { color: #1e40af; border-bottom: 3px solid #1e40af; padding-bottom: 10px; }
+            h2 { color: #1e40af; margin-top: 30px; border-bottom: 1px solid #ddd; padding-bottom: 5px; }
+            h3 { color: #374151; margin-top: 20px; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .meta { color: #666; font-size: 14px; margin-bottom: 20px; }
+            .section { margin-bottom: 25px; padding-left: 15px; border-left: 4px solid #3b82f6; }
+            .key-points { background: #eff6ff; padding: 15px; border-radius: 8px; margin-top: 10px; }
+            .key-points h4 { margin: 0 0 10px 0; color: #1e40af; }
+            .key-points ul { margin: 0; padding-left: 20px; }
+            .safety { background: #fef2f2; padding: 15px; border-radius: 8px; border-left: 4px solid #dc2626; }
+            .safety h3 { color: #dc2626; margin-top: 0; }
+            .best-practices { background: #f0fdf4; padding: 15px; border-radius: 8px; border-left: 4px solid #16a34a; }
+            .best-practices h3 { color: #16a34a; margin-top: 0; }
+            .mistakes { background: #fefce8; padding: 15px; border-radius: 8px; border-left: 4px solid #ca8a04; }
+            .mistakes h3 { color: #ca8a04; margin-top: 0; }
+            .page-ref { color: #2563eb; font-weight: 500; }
+            .doc-section { page-break-before: always; margin-top: 40px; }
+            .doc-section h2 { color: #059669; border-bottom: 2px solid #059669; }
+            .pdf-page {
+              margin: 20px 0;
+              text-align: center;
+              page-break-inside: avoid;
+            }
+            .pdf-page img {
+              max-width: 100%;
+              border: 1px solid #ddd;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            .pdf-page-label {
+              font-size: 12px;
+              color: #666;
+              margin-top: 5px;
+            }
+            @media print {
+              body { padding: 0; }
+              .doc-section { page-break-before: always; }
+              .pdf-page { page-break-inside: avoid; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${trainingData.title}</h1>
+            <div class="meta">
+              <strong>Department:</strong> ${trainingData.department} |
+              <strong>Type:</strong> ${trainingData.trainingType} |
+              <strong>Language:</strong> ${getLanguageName(trainingData.language)} |
+              <strong>Scope:</strong> ${trainingData.trainingScope}
+            </div>
+          </div>
+
+          <h2>Introduction</h2>
+          <p>${generatedTraining.training.introduction}</p>
+
+          ${generatedTraining.training.sections.map(section => `
+            <div class="section">
+              <h3>${section.title}</h3>
+              <p>${section.content}</p>
+              <div class="key-points">
+                <h4>Key Points:</h4>
+                <ul>
+                  ${section.keyPoints.map(point => `<li>${point}</li>`).join('')}
+                </ul>
+              </div>
+            </div>
+          `).join('')}
+
+          <div class="safety">
+            <h3>⚠️ Safety Responsibilities</h3>
+            <ul>
+              ${generatedTraining.training.safetyNotes.map(note => `<li>${note}</li>`).join('')}
+            </ul>
+          </div>
+
+          <div class="best-practices">
+            <h3>✓ Best Practices</h3>
+            <ul>
+              ${generatedTraining.training.bestPractices.map(p => `<li>${p}</li>`).join('')}
+            </ul>
+          </div>
+
+          <div class="mistakes">
+            <h3>✗ Common Mistakes to Avoid</h3>
+            <ul>
+              ${generatedTraining.training.commonMistakes.map(m => `<li>${m}</li>`).join('')}
+            </ul>
+          </div>
+
+          ${allDocImages.map(doc => `
+            <div class="doc-section">
+              <h2>📄 Reference Document: ${doc.name}</h2>
+              <p>The following pages are from the source documentation referenced throughout this training.</p>
+              ${doc.images.map(img => `
+                <div class="pdf-page">
+                  <img src="${img.dataUrl}" alt="Page ${img.pageNum}" />
+                  <div class="pdf-page-label">Page ${img.pageNum}</div>
+                </div>
+              `).join('')}
+            </div>
+          `).join('')}
+
+          <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #ddd; text-align: center; color: #666;">
+            <p>Generated by LineSmart Training Platform</p>
+            <p>Print Date: ${new Date().toLocaleDateString()}</p>
+          </div>
+        </body>
+        </html>
+      `;
+
+      printWindow.document.write(printHTML);
+      printWindow.document.close();
+
+      // Wait for images to load then print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print();
+        }, 500);
+      };
+
+    } catch (error) {
+      console.error('Print error:', error);
+      alert('Error preparing print document: ' + error.message);
+    } finally {
+      setIsPrinting(false);
+      setPrintProgress('');
+    }
+  };
 
   const closeDocumentViewer = () => {
     if (viewingDocument?.url) {
@@ -94,11 +299,29 @@ export const ReviewTrainingView = ({
               <Play className="h-4 w-4" />
               <span>Start Quiz</span>
             </button>
+            <button
+              onClick={handlePrint}
+              disabled={isPrinting}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2 disabled:opacity-50"
+            >
+              <Printer className="h-4 w-4" />
+              <span>{isPrinting ? 'Preparing...' : 'Print with Manual'}</span>
+            </button>
             <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
               <Download className="h-4 w-4" />
               <span>Export</span>
             </button>
           </div>
+
+          {/* Print Progress Indicator */}
+          {isPrinting && (
+            <div className="mt-4 p-3 bg-purple-50 rounded-lg text-purple-700 text-sm">
+              <div className="flex items-center space-x-2">
+                <div className="animate-spin h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full"></div>
+                <span>{printProgress}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Source Documents Section */}
