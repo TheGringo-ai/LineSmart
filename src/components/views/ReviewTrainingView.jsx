@@ -1,7 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { Play, Download, AlertCircle, FileText, Eye, X, Printer } from 'lucide-react';
+import { Play, Download, AlertCircle, FileText, Eye, X, Printer, Save, Trash2, Check } from 'lucide-react';
 import { getLanguageName } from '../../utils';
 import * as pdfjsLib from 'pdfjs-dist';
+import { useCompany } from '../../contexts/CompanyContext';
 
 // Ensure PDF.js worker is set
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
@@ -12,12 +13,94 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 export const ReviewTrainingView = ({
   generatedTraining,
   trainingData,
-  onStartQuiz
+  onStartQuiz,
+  onSaveTraining,
+  onDeleteTraining,
+  isSaved = false,
+  trainingId = null
 }) => {
   const [viewingDocument, setViewingDocument] = useState(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printProgress, setPrintProgress] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const printContentRef = useRef(null);
+  const { saveTraining } = useCompany();
+
+  // Export training as JSON file
+  const handleExport = useCallback(() => {
+    const exportData = {
+      title: trainingData.title,
+      department: trainingData.department,
+      trainingType: trainingData.trainingType,
+      language: trainingData.language,
+      trainingScope: trainingData.trainingScope,
+      training: generatedTraining.training,
+      quiz: generatedTraining.quiz,
+      exportDate: new Date().toISOString(),
+      documentSources: (trainingData.documents || []).map(d => d.name)
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${trainingData.title.replace(/[^a-z0-9]/gi, '_')}_training.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [trainingData, generatedTraining]);
+
+  // Save training to Firestore
+  const handleSave = useCallback(async () => {
+    setIsSaving(true);
+    try {
+      const trainingToSave = {
+        title: trainingData.title,
+        department: trainingData.department,
+        trainingType: trainingData.trainingType,
+        language: trainingData.language,
+        trainingScope: trainingData.trainingScope,
+        description: trainingData.description,
+        objectives: trainingData.objectives,
+        content: generatedTraining.training,
+        quiz: generatedTraining.quiz,
+        assignedEmployees: trainingData.assignedEmployees || [],
+        dueDate: trainingData.dueDate,
+        documentSources: (trainingData.documents || []).map(d => d.name),
+        status: 'active'
+      };
+
+      if (onSaveTraining) {
+        await onSaveTraining(trainingToSave);
+      } else if (saveTraining) {
+        await saveTraining(trainingToSave);
+      }
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error saving training:', error);
+      alert('Error saving training: ' + error.message);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [trainingData, generatedTraining, onSaveTraining, saveTraining]);
+
+  // Delete training
+  const handleDelete = useCallback(async () => {
+    if (onDeleteTraining && trainingId) {
+      try {
+        await onDeleteTraining(trainingId);
+        setShowDeleteConfirm(false);
+      } catch (error) {
+        console.error('Error deleting training:', error);
+        alert('Error deleting training: ' + error.message);
+      }
+    }
+  }, [onDeleteTraining, trainingId]);
 
   // Create object URL for viewing PDF at specific page
   const viewDocument = useCallback((doc, page = 1) => {
@@ -291,7 +374,7 @@ export const ReviewTrainingView = ({
               Language: {getLanguageName(trainingData.language)} • Scope: {trainingData.trainingScope}
             </p>
           </div>
-          <div className="flex space-x-3">
+          <div className="flex flex-wrap gap-2">
             <button
               onClick={onStartQuiz}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center space-x-2"
@@ -300,17 +383,41 @@ export const ReviewTrainingView = ({
               <span>Start Quiz</span>
             </button>
             <button
+              onClick={handleSave}
+              disabled={isSaving || saveSuccess}
+              className={`px-4 py-2 rounded-lg flex items-center space-x-2 ${
+                saveSuccess
+                  ? 'bg-green-500 text-white'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              } disabled:opacity-50`}
+            >
+              {saveSuccess ? <Check className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+              <span>{isSaving ? 'Saving...' : saveSuccess ? 'Saved!' : 'Save Training'}</span>
+            </button>
+            <button
               onClick={handlePrint}
               disabled={isPrinting}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center space-x-2 disabled:opacity-50"
             >
               <Printer className="h-4 w-4" />
-              <span>{isPrinting ? 'Preparing...' : 'Print with Manual'}</span>
+              <span>{isPrinting ? 'Preparing...' : 'Print'}</span>
             </button>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+            <button
+              onClick={handleExport}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            >
               <Download className="h-4 w-4" />
               <span>Export</span>
             </button>
+            {(isSaved || trainingId) && (
+              <button
+                onClick={() => setShowDeleteConfirm(true)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center space-x-2"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>Delete</span>
+              </button>
+            )}
           </div>
 
           {/* Print Progress Indicator */}
@@ -319,6 +426,32 @@ export const ReviewTrainingView = ({
               <div className="flex items-center space-x-2">
                 <div className="animate-spin h-4 w-4 border-2 border-purple-600 border-t-transparent rounded-full"></div>
                 <span>{printProgress}</span>
+              </div>
+            </div>
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {showDeleteConfirm && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+              <div className="bg-white rounded-xl p-6 max-w-md w-full">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Training?</h3>
+                <p className="text-gray-600 mb-4">
+                  Are you sure you want to delete "{trainingData.title}"? This action cannot be undone.
+                </p>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowDeleteConfirm(false)}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleDelete}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
+                </div>
               </div>
             </div>
           )}
