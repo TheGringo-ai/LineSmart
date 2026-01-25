@@ -8,6 +8,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLi
 
 /**
  * Extract text AND images from a PDF file for comprehensive training
+ * Returns structured data with page references and image locations
  */
 const extractTextFromPDF = async (file) => {
   try {
@@ -19,7 +20,12 @@ const extractTextFromPDF = async (file) => {
     console.log('📄 PDF loaded, pages:', pdf.numPages);
 
     let fullText = '';
-    const extractedImages = [];
+    let figureCount = 0;
+    const pageInfo = [];
+
+    // Add document header with reference info
+    fullText += `\n=== DOCUMENT: ${file.name} (${pdf.numPages} pages) ===\n`;
+    fullText += `[Reference this document for all figures, diagrams, and images mentioned below]\n\n`;
 
     for (let i = 1; i <= pdf.numPages; i++) {
       const page = await pdf.getPage(i);
@@ -27,10 +33,12 @@ const extractTextFromPDF = async (file) => {
       // Extract text
       const textContent = await page.getTextContent();
       const pageText = textContent.items.map(item => item.str).join(' ');
-      fullText += `\n--- PAGE ${i} ---\n${pageText}\n`;
-      console.log(`📄 Page ${i}: extracted ${pageText.length} characters`);
 
-      // Extract images from page
+      // Mark page clearly for AI reference
+      fullText += `\n======== PAGE ${i} of ${pdf.numPages} ========\n`;
+      fullText += pageText + '\n';
+
+      // Check for figures/images and note their locations
       try {
         const operatorList = await page.getOperatorList();
         const imgCount = operatorList.fnArray.filter(fn =>
@@ -38,17 +46,35 @@ const extractTextFromPDF = async (file) => {
         ).length;
 
         if (imgCount > 0) {
-          console.log(`🖼️ Page ${i}: found ${imgCount} images`);
-          fullText += `[Page ${i} contains ${imgCount} diagram(s)/image(s) - reference for visual procedures]\n`;
+          figureCount += imgCount;
+          console.log(`🖼️ Page ${i}: found ${imgCount} figures/diagrams`);
+          fullText += `\n[📷 PAGE ${i} CONTAINS ${imgCount} FIGURE(S)/DIAGRAM(S) - Reference: "${file.name}", Page ${i}]\n`;
+
+          pageInfo.push({
+            page: i,
+            figures: imgCount,
+            reference: `See ${file.name}, Page ${i}`
+          });
         }
       } catch (imgError) {
-        // Image extraction is optional, continue with text
-        console.log(`📄 Page ${i}: image extraction skipped`);
+        console.log(`📄 Page ${i}: image detection skipped`);
       }
+
+      console.log(`📄 Page ${i}: extracted ${pageText.length} characters`);
+    }
+
+    // Add summary of figures at the end
+    if (figureCount > 0) {
+      fullText += `\n\n=== FIGURE REFERENCE SUMMARY ===\n`;
+      fullText += `Total Figures/Diagrams in document: ${figureCount}\n`;
+      pageInfo.forEach(info => {
+        fullText += `- Page ${info.page}: ${info.figures} figure(s)\n`;
+      });
+      fullText += `\nIMPORTANT: When referencing procedures that have diagrams, include "(See ${file.name}, Page X)" in the training content.\n`;
     }
 
     console.log('📄 Total extracted:', fullText.trim().length, 'characters');
-    console.log('🖼️ Total images found:', extractedImages.length);
+    console.log('🖼️ Total figures found:', figureCount, 'across', pageInfo.length, 'pages');
 
     return fullText.trim();
   } catch (error) {
@@ -292,6 +318,13 @@ MANDATORY EXTRACTION REQUIREMENTS:
 11. Include installation requirements, leveling specs, utility connections
 12. Note any referenced standards (OSHA, NFPA, NEC, manufacturer codes)
 
+CRITICAL - DOCUMENT REFERENCES:
+- When a procedure has an associated figure/diagram, add "(See [Document Name], Page X)" in the content
+- Reference specific page numbers for complex procedures
+- Note figure numbers (e.g., "See Figure 3-2 on Page 15")
+- For assembly/disassembly procedures, always reference the diagram page
+- Include page references in keyPoints when relevant
+
 CREATE 8-10 DETAILED SECTIONS:
 - Machine Specifications (ALL technical data)
 - Installation Requirements
@@ -331,8 +364,8 @@ Return ONLY valid JSON:
       },
       {
         "title": "Start-Up Procedure",
-        "content": "Step 1: [exact action]. Step 2: [exact action]. Step 3: [action]. Continue ALL steps with parameters and verification points.",
-        "keyPoints": ["Critical step", "Parameter to verify", "Safety check", "Indicator to watch"]
+        "content": "Step 1: [exact action]. Step 2: [exact action]. Step 3: [action]. (See [Document Name], Page X for diagram). Continue ALL steps with parameters and verification points.",
+        "keyPoints": ["Critical step (See Page X)", "Parameter to verify", "Safety check", "See Figure X-X"]
       },
       {
         "title": "Normal Operation",

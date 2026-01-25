@@ -1,5 +1,5 @@
-import React from 'react';
-import { Play, Download, AlertCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { Play, Download, AlertCircle, FileText, Eye, X } from 'lucide-react';
 import { getLanguageName } from '../../utils';
 
 /**
@@ -10,6 +10,23 @@ export const ReviewTrainingView = ({
   trainingData,
   onStartQuiz
 }) => {
+  const [viewingDocument, setViewingDocument] = useState(null);
+
+  // Create object URL for viewing PDF
+  const viewDocument = (doc) => {
+    if (doc.file) {
+      const url = URL.createObjectURL(doc.file);
+      setViewingDocument({ ...doc, url });
+    }
+  };
+
+  const closeDocumentViewer = () => {
+    if (viewingDocument?.url) {
+      URL.revokeObjectURL(viewingDocument.url);
+    }
+    setViewingDocument(null);
+  };
+
   return (
     <div className="max-w-4xl mx-auto">
       <div className="bg-white rounded-xl shadow-sm border p-8">
@@ -35,6 +52,32 @@ export const ReviewTrainingView = ({
             </button>
           </div>
         </div>
+
+        {/* Source Documents Section */}
+        {trainingData.documents && trainingData.documents.length > 0 && (
+          <div className="mb-6 bg-gray-50 p-4 rounded-lg border">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center">
+              <FileText className="h-5 w-5 mr-2 text-blue-600" />
+              Source Documents (Click to View)
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              {trainingData.documents.map((doc, index) => (
+                <button
+                  key={index}
+                  onClick={() => viewDocument(doc)}
+                  className="flex items-center space-x-2 px-3 py-2 bg-white border rounded-lg hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                >
+                  <Eye className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-gray-700">{doc.name}</span>
+                  <span className="text-xs text-gray-500">({Math.round(doc.size / 1024)} KB)</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              📌 Training content references page numbers from these documents. Click to view diagrams and figures.
+            </p>
+          </div>
+        )}
 
         {/* Training Content Display */}
         <div className="mb-8">
@@ -92,6 +135,38 @@ export const ReviewTrainingView = ({
           </ul>
         </div>
       </div>
+
+      {/* Document Viewer Modal */}
+      {viewingDocument && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl w-full max-w-6xl h-[90vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                {viewingDocument.name}
+              </h3>
+              <button
+                onClick={closeDocumentViewer}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-5 w-5 text-gray-600" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <iframe
+                src={viewingDocument.url}
+                className="w-full h-full"
+                title={viewingDocument.name}
+              />
+            </div>
+            <div className="p-3 border-t bg-gray-50 text-center">
+              <p className="text-sm text-gray-600">
+                📌 Use this document to view figures and diagrams referenced in the training content
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
