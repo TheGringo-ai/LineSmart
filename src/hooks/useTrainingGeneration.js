@@ -318,12 +318,21 @@ MANDATORY EXTRACTION REQUIREMENTS:
 11. Include installation requirements, leveling specs, utility connections
 12. Note any referenced standards (OSHA, NFPA, NEC, manufacturer codes)
 
-CRITICAL - DOCUMENT REFERENCES:
-- When a procedure has an associated figure/diagram, add "(See [Document Name], Page X)" in the content
-- Reference specific page numbers for complex procedures
-- Note figure numbers (e.g., "See Figure 3-2 on Page 15")
-- For assembly/disassembly procedures, always reference the diagram page
-- Include page references in keyPoints when relevant
+**MANDATORY PAGE REFERENCES - YOU MUST DO THIS:**
+The source documentation above contains "PAGE X of Y" markers. You MUST include page references in your output.
+
+FOR EVERY SECTION, YOU MUST:
+1. Add "(See Page X)" at the end of each procedure description
+2. Add "(See Page X)" after specifications that have diagrams
+3. Include "See Page X" in keyPoints for visual procedures
+4. Format: "(See Page 5)" or "(See Pages 12-15)" or "(See Figure 3 on Page 8)"
+
+EXAMPLE OUTPUT WITH PAGE REFERENCES:
+- "Step 1: Turn main power switch to ON position. Step 2: Press JOG button to verify operation. (See Page 12 for control panel layout)"
+- "Electrical: 460 VAC, 3 phase, 20 AMP (See Page 5 for wiring diagram)"
+- keyPoints: ["Check vacuum pump oil level (See Page 23)", "Verify seal bar alignment (See Page 18)"]
+
+DO NOT SKIP PAGE REFERENCES. Every procedure and specification MUST reference its source page number.
 
 CREATE 8-10 DETAILED SECTIONS:
 - Machine Specifications (ALL technical data)
@@ -340,75 +349,77 @@ CREATE 8-10 DETAILED SECTIONS:
 Return ONLY valid JSON:
 {
   "training": {
-    "introduction": "Complete operator certification training for [equipment model] covering installation, operation, maintenance, and safety per manufacturer specifications",
+    "introduction": "Complete operator certification training for [equipment model] covering installation, operation, maintenance, and safety per manufacturer specifications. (See Page 1 for equipment overview)",
     "sections": [
       {
         "title": "Machine Specifications",
-        "content": "Model: [exact model]. Dimensions: [exact]. Electrical: [voltage/phase/amps]. Capacity: [exact]. Weight: [exact]. Operating temp: [range]. All specifications from documentation.",
-        "keyPoints": ["Spec 1 with exact value", "Spec 2 with exact value", "Spec 3", "Spec 4"]
+        "content": "Model: [exact model]. Dimensions: Height [X], Width [Y], Length [Z]. (See Page 3 for dimensional drawing). Electrical: [voltage/phase/amps] (See Page 5 for wiring diagram). Capacity: [exact]. Weight: [exact].",
+        "keyPoints": ["Dimensions: H x W x L (See Page 3)", "Electrical specs (See Page 5)", "Weight capacity (See Page 4)", "Operating parameters (See Page 6)"]
       },
       {
         "title": "Installation Requirements",
-        "content": "Floor requirements, utility connections, clearances, leveling procedures, and initial setup from documentation.",
-        "keyPoints": ["Requirement 1", "Requirement 2", "Requirement 3", "Requirement 4"]
+        "content": "Floor must support [weight]. Level machine using jack bolts. (See Page 8 for leveling procedure). Utility connections: [specs] (See Page 9 for connection diagram).",
+        "keyPoints": ["Floor requirements (See Page 7)", "Leveling procedure (See Page 8)", "Electrical connections (See Page 9)", "Air/water hookups (See Page 10)"]
       },
       {
         "title": "Safety Requirements & PPE",
-        "content": "ALL safety warnings, required PPE, lockout/tagout procedures, and hazard identification from documentation.",
-        "keyPoints": ["PPE item 1", "Safety device 1", "Warning 1", "Hazard 1"]
+        "content": "Required PPE: [items]. Safety devices include [list]. (See Page 12 for safety device locations). Lockout/tagout procedure on Page 14.",
+        "keyPoints": ["Required PPE (See Page 11)", "Safety switch locations (See Page 12)", "Lockout procedure (See Page 14)", "Emergency stops (See Page 13)"]
       },
       {
         "title": "Pre-Operation Checklist",
-        "content": "Complete inspection checklist before starting: visual checks, fluid levels, safety devices, connections, etc.",
-        "keyPoints": ["Check 1", "Check 2", "Check 3", "Check 4"]
+        "content": "Before starting: 1) Check [item] 2) Verify [item] 3) Inspect [item]. (See Page 16 for complete checklist with diagrams).",
+        "keyPoints": ["Visual inspection points (See Page 16)", "Fluid level checks (See Page 17)", "Safety device verification (See Page 18)", "Control panel check (See Page 19)"]
       },
       {
         "title": "Start-Up Procedure",
-        "content": "Step 1: [exact action]. Step 2: [exact action]. Step 3: [action]. (See [Document Name], Page X for diagram). Continue ALL steps with parameters and verification points.",
-        "keyPoints": ["Critical step (See Page X)", "Parameter to verify", "Safety check", "See Figure X-X"]
+        "content": "Step 1: [action]. Step 2: [action]. Step 3: [action]. (See Page 20 for control panel diagram). Step 4: [action]. (See Page 21 for startup sequence).",
+        "keyPoints": ["Power-on sequence (See Page 20)", "Control settings (See Page 21)", "Verification steps (See Page 22)", "Normal indicators (See Page 23)"]
       },
       {
         "title": "Normal Operation",
-        "content": "Operating parameters, cycle times, adjustments, product handling, monitoring points, and quality verification procedures.",
-        "keyPoints": ["Parameter 1: value", "Parameter 2: value", "Quality check", "Monitoring point"]
+        "content": "Operating cycle: [description]. Vacuum level: [spec]. Seal time: [spec]. (See Page 25 for operating parameters). Product loading procedure on Page 26.",
+        "keyPoints": ["Vacuum settings (See Page 25)", "Seal parameters (See Page 26)", "Cycle monitoring (See Page 27)", "Quality checks (See Page 28)"]
       },
       {
         "title": "Shutdown Procedure",
-        "content": "Complete shutdown steps, cleaning requirements, securing equipment, and end-of-shift procedures.",
-        "keyPoints": ["Step 1", "Cleaning requirement", "Securing step", "Documentation"]
+        "content": "Step 1: [action]. Step 2: [action]. (See Page 30 for shutdown sequence). Cleaning procedure on Page 31.",
+        "keyPoints": ["Shutdown sequence (See Page 30)", "Cleaning (See Page 31)", "Securing equipment (See Page 32)", "End-of-shift checklist (See Page 33)"]
       },
       {
         "title": "Preventive Maintenance Schedule",
-        "content": "Daily: [tasks]. Weekly: [tasks]. Monthly: [tasks]. Every [X] hours: [tasks]. Annual: [tasks]. Include lubricants, parts, and procedures.",
-        "keyPoints": ["Daily task", "Weekly task", "Hourly interval task", "Lubrication point"]
+        "content": "Daily: [tasks] (See Page 35). Weekly: [tasks] (See Page 36). Every [X] hours: [tasks] (See Page 37). Lubrication diagram on Page 38.",
+        "keyPoints": ["Daily maintenance (See Page 35)", "Weekly inspection (See Page 36)", "Hour-based service (See Page 37)", "Lubrication points (See Page 38)"]
       },
       {
         "title": "Troubleshooting Guide",
-        "content": "Problem: [symptom] - Cause: [reason] - Solution: [fix]. Include all error codes and diagnostic procedures from documentation.",
-        "keyPoints": ["Problem/solution 1", "Problem/solution 2", "Error code meaning", "When to call service"]
+        "content": "Problem: [symptom] - Solution: [fix] (See Page 40). Error codes on Page 41. Diagnostic flowchart on Page 42.",
+        "keyPoints": ["Common problems (See Page 40)", "Error codes (See Page 41)", "Diagnostics (See Page 42)", "Service contacts (See Page 43)"]
       },
       {
         "title": "Emergency Procedures",
-        "content": "Emergency stop locations, emergency shutdown procedure, fire response, injury response, and emergency contacts.",
-        "keyPoints": ["E-stop location", "Emergency action 1", "Emergency action 2", "Contact info"]
+        "content": "Emergency stop locations on Page 45. Emergency shutdown procedure on Page 46. First aid on Page 47.",
+        "keyPoints": ["E-stop locations (See Page 45)", "Emergency shutdown (See Page 46)", "First aid (See Page 47)", "Emergency contacts (See Page 48)"]
       }
     ],
-    "safetyNotes": ["Specific PPE required", "Specific hazard warning", "Lockout/tagout requirement", "Emergency procedure"],
-    "bestPractices": ["Manufacturer recommendation 1", "Efficiency practice", "Quality practice", "Longevity tip"],
-    "commonMistakes": ["Operational error to avoid", "Safety violation to prevent", "Maintenance oversight", "Quality issue cause"]
+    "safetyNotes": ["Required PPE (See Page 11)", "Lockout/tagout procedure (See Page 14)", "Emergency stops (See Page 45)", "Safety warnings (See Page 12)"],
+    "bestPractices": ["Follow maintenance schedule (See Page 35)", "Daily inspections (See Page 16)", "Keep manual accessible", "Document all service"],
+    "commonMistakes": ["Skipping pre-op checklist (See Page 16)", "Ignoring warnings", "Delayed maintenance", "Improper loading (See Page 26)"]
   },
   "quiz": [
     {
-      "question": "What is the exact [specification] for the ${trainingData.title || 'equipment'}?",
-      "options": ["A) [Correct value from docs]", "B) [Plausible wrong]", "C) [Wrong]", "D) [Wrong]"],
+      "question": "What is the [specification]? (Reference: Page X)",
+      "options": ["A) [Correct]", "B) [Wrong]", "C) [Wrong]", "D) [Wrong]"],
       "correct": 0,
-      "explanation": "Per manufacturer documentation, the correct answer is [X]. This is critical for [reason].",
+      "explanation": "Per Page X of the manual, the answer is [value]. See Page X for details.",
       "type": "Specifications"
     }
   ]
 }
 
-Generate EXACTLY ${questionCount} questions covering: specifications (2), safety (2), operations (3), maintenance (3)`;
+CRITICAL REMINDER: EVERY section content and EVERY keyPoint MUST include "(See Page X)" references. The source documentation has PAGE markers - use them!
+
+Generate EXACTLY ${questionCount} questions. Each explanation MUST reference the page number.`;
   }, [trainingData, setupConfig, documentContent]);
 
   const callUserConfiguredAPI = useCallback(async ([modelName, config], prompt) => {
