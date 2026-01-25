@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Play, Download, AlertCircle, FileText, Eye, X } from 'lucide-react';
 import { getLanguageName } from '../../utils';
 
@@ -12,13 +12,13 @@ export const ReviewTrainingView = ({
 }) => {
   const [viewingDocument, setViewingDocument] = useState(null);
 
-  // Create object URL for viewing PDF
-  const viewDocument = (doc) => {
+  // Create object URL for viewing PDF at specific page
+  const viewDocument = useCallback((doc, page = 1) => {
     if (doc.file) {
       const url = URL.createObjectURL(doc.file);
-      setViewingDocument({ ...doc, url });
+      setViewingDocument({ ...doc, url, page });
     }
-  };
+  }, []);
 
   const closeDocumentViewer = () => {
     if (viewingDocument?.url) {
@@ -26,6 +26,54 @@ export const ReviewTrainingView = ({
     }
     setViewingDocument(null);
   };
+
+  // Parse text and make page references clickable
+  const renderContentWithLinks = useCallback((text) => {
+    if (!text || !trainingData.documents?.length) return text;
+
+    // Pattern to match "(See [Document Name], Page X)" or "See Page X" or "Page X"
+    const pageRefPattern = /\(?\s*[Ss]ee\s+(?:["']?([^"',]+)["']?,?\s+)?[Pp]age\s+(\d+)\s*\)?|(?:\([Pp]age\s+(\d+)\))|(?:[Ss]ee\s+[Ff]igure\s+[\d\-]+\s+on\s+[Pp]age\s+(\d+))/gi;
+
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pageRefPattern.exec(text)) !== null) {
+      // Add text before the match
+      if (match.index > lastIndex) {
+        parts.push(text.substring(lastIndex, match.index));
+      }
+
+      const pageNum = match[2] || match[3] || match[4];
+      const docName = match[1];
+
+      // Find matching document
+      const doc = trainingData.documents.find(d =>
+        !docName || d.name.toLowerCase().includes(docName.toLowerCase())
+      ) || trainingData.documents[0];
+
+      // Add clickable link
+      parts.push(
+        <button
+          key={match.index}
+          onClick={() => viewDocument(doc, parseInt(pageNum))}
+          className="inline-flex items-center text-blue-600 hover:text-blue-800 hover:underline font-medium mx-1"
+          title={`View ${doc?.name || 'document'} page ${pageNum}`}
+        >
+          📄 {match[0]}
+        </button>
+      );
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+
+    return parts.length > 0 ? parts : text;
+  }, [trainingData.documents, viewDocument]);
 
   return (
     <div className="max-w-4xl mx-auto">
@@ -82,19 +130,19 @@ export const ReviewTrainingView = ({
         {/* Training Content Display */}
         <div className="mb-8">
           <h3 className="text-xl font-semibold mb-3">Introduction</h3>
-          <p className="text-gray-700 leading-relaxed">{generatedTraining.training.introduction}</p>
+          <p className="text-gray-700 leading-relaxed">{renderContentWithLinks(generatedTraining.training.introduction)}</p>
         </div>
 
         <div className="space-y-8">
           {generatedTraining.training.sections.map((section, index) => (
             <div key={index} className="border-l-4 border-blue-500 pl-6">
               <h3 className="text-xl font-semibold mb-3">{section.title}</h3>
-              <p className="text-gray-700 mb-4 leading-relaxed">{section.content}</p>
+              <p className="text-gray-700 mb-4 leading-relaxed">{renderContentWithLinks(section.content)}</p>
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">Key Points:</h4>
                 <ul className="list-disc list-inside space-y-1 text-blue-800">
                   {section.keyPoints.map((point, pointIndex) => (
-                    <li key={pointIndex}>{point}</li>
+                    <li key={pointIndex}>{renderContentWithLinks(point)}</li>
                   ))}
                 </ul>
               </div>
@@ -144,6 +192,11 @@ export const ReviewTrainingView = ({
               <h3 className="text-lg font-semibold text-gray-900 flex items-center">
                 <FileText className="h-5 w-5 mr-2 text-blue-600" />
                 {viewingDocument.name}
+                {viewingDocument.page > 1 && (
+                  <span className="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-sm rounded">
+                    Page {viewingDocument.page}
+                  </span>
+                )}
               </h3>
               <button
                 onClick={closeDocumentViewer}
@@ -154,14 +207,14 @@ export const ReviewTrainingView = ({
             </div>
             <div className="flex-1 overflow-hidden">
               <iframe
-                src={viewingDocument.url}
+                src={`${viewingDocument.url}#page=${viewingDocument.page || 1}`}
                 className="w-full h-full"
                 title={viewingDocument.name}
               />
             </div>
             <div className="p-3 border-t bg-gray-50 text-center">
               <p className="text-sm text-gray-600">
-                📌 Use this document to view figures and diagrams referenced in the training content
+                📌 Viewing page {viewingDocument.page || 1} - Scroll or use PDF controls to navigate
               </p>
             </div>
           </div>
